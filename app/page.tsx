@@ -9,7 +9,9 @@ export default function Home() {
   const [tool, setTool] = useState("brush"); // brush or eraser
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+
     ctx.beginPath();
     ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     setIsDrawing(true);
@@ -18,29 +20,25 @@ export default function Home() {
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
 
-    const ctx = canvasRef.current.getContext("2d");
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
 
-    if (tool === "eraser") {
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 20;
-    } else {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 4;
-    }
-
+    ctx.strokeStyle = tool === "eraser" ? "white" : color;
+    ctx.lineWidth = tool === "eraser" ? 20 : 4;
     ctx.lineCap = "round";
+
     ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     ctx.stroke();
   };
 
-  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement>) => {
+  const stopDrawing = () => {
     setIsDrawing(false);
   };
 
   const clearBoard = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
   };
 
   const colors = ["black", "red", "blue"];
