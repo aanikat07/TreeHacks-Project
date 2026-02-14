@@ -8,14 +8,14 @@ export default function Home() {
   const [color, setColor] = useState("black");
   const [tool, setTool] = useState("brush"); // brush or eraser
 
-  const startDrawing = (e) => {
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const ctx = canvasRef.current.getContext("2d");
     ctx.beginPath();
     ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
     setIsDrawing(true);
   };
 
-  const draw = (e) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
 
     const ctx = canvasRef.current.getContext("2d");
@@ -33,7 +33,7 @@ export default function Home() {
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(false);
   };
 
