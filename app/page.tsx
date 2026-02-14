@@ -3,45 +3,79 @@
 import { useRef, useState } from "react";
 
 export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement>(null); // <-- typed
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("black");
-  const [tool, setTool] = useState("brush"); // brush or eraser
+  const [tool, setTool] = useState<"brush" | "eraser">("brush");
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const colors = ["black", "red", "blue"];
+
+  // Get coordinates for mouse or touch
+  const getCoords = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    if ("touches" in e) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    } else {
+      return {
+        x: e.nativeEvent.offsetX,
+        y: e.nativeEvent.offsetY,
+      };
+    }
+  };
+
+  const startDrawing = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    e.preventDefault();
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
 
+    const { x, y } = getCoords(e);
     ctx.beginPath();
-    ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    ctx.moveTo(x, y);
     setIsDrawing(true);
   };
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    e.preventDefault();
     if (!isDrawing) return;
 
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
 
+    const { x, y } = getCoords(e);
+
     ctx.strokeStyle = tool === "eraser" ? "white" : color;
     ctx.lineWidth = tool === "eraser" ? 20 : 4;
     ctx.lineCap = "round";
 
-    ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+    ctx.lineTo(x, y);
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (
+    e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
+    e?.preventDefault();
     setIsDrawing(false);
   };
 
   const clearBoard = () => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx || !canvasRef.current) return;
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    const canvas = canvasRef.current;
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
-
-  const colors = ["black", "red", "blue"];
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-zinc-100 p-6">
@@ -70,8 +104,9 @@ export default function Home() {
         {/* Eraser */}
         <button
           onClick={() => setTool("eraser")}
-          className={`w-8 h-8 flex items-center justify-center transition ${tool === "eraser" ? "scale-110" : ""
-            }`}
+          className={`w-8 h-8 flex items-center justify-center transition ${
+            tool === "eraser" ? "scale-110" : ""
+          }`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -97,11 +132,15 @@ export default function Home() {
         ref={canvasRef}
         width={900}
         height={550}
-        className="bg-white shadow-lg rounded-lg border"
+        className="bg-white shadow-lg rounded-lg border touch-none"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
+        onTouchStart={startDrawing}
+        onTouchMove={draw}
+        onTouchEnd={stopDrawing}
+        onTouchCancel={stopDrawing}
       />
     </div>
   );
