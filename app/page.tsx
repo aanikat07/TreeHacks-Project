@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 export default function Home() {
-  const canvasRef = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null); // <-- typed
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState("black");
   const [tool, setTool] = useState("brush"); // brush or eraser
@@ -37,8 +37,8 @@ export default function Home() {
 
   const clearBoard = () => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
+    if (!ctx || !canvasRef.current) return;
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
   };
 
   const colors = ["black", "red", "blue"];
