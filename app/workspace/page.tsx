@@ -107,6 +107,7 @@ export default function WorkspacePage() {
   const suppressNextAssistantTtsRef = useRef(false);
   const pendingAnimationNarrationTextRef = useRef<string | null>(null);
   const pendingAnimationNarrationUrlRef = useRef<string | null>(null);
+  const pendingNarrationPreloadPromiseRef = useRef<Promise<void> | null>(null);
   const pendingNarrationRequestIdRef = useRef(0);
   const whiteboardRef = useRef<WhiteboardHandle | null>(null);
   const [graphWindowOpen, setGraphWindowOpen] = useState(false);
@@ -133,6 +134,8 @@ export default function WorkspacePage() {
 
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const ensureRealtimePromiseRef = useRef<Promise<boolean> | null>(null);
+  const prewarmRealtimeRef = useRef<() => Promise<boolean>>(async () => false);
   const recordedChunksRef = useRef<BlobPart[]>([]);
   const latestVoiceBlobRef = useRef<Blob | null>(null);
 
@@ -182,6 +185,7 @@ export default function WorkspacePage() {
   }, []);
 
   const clearPendingNarrationAudio = useCallback(() => {
+    pendingNarrationPreloadPromiseRef.current = null;
     if (pendingAnimationNarrationUrlRef.current) {
       URL.revokeObjectURL(pendingAnimationNarrationUrlRef.current);
       pendingAnimationNarrationUrlRef.current = null;
@@ -192,18 +196,22 @@ export default function WorkspacePage() {
     const requestId = ++pendingNarrationRequestIdRef.current;
     clearPendingNarrationAudio();
 
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!response.ok || requestId !== pendingNarrationRequestIdRef.current) {
-      return;
-    }
+    const task = (async () => {
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok || requestId !== pendingNarrationRequestIdRef.current) {
+        return;
+      }
 
-    const audioBlob = await response.blob();
-    if (requestId !== pendingNarrationRequestIdRef.current) return;
-    pendingAnimationNarrationUrlRef.current = URL.createObjectURL(audioBlob);
+      const audioBlob = await response.blob();
+      if (requestId !== pendingNarrationRequestIdRef.current) return;
+      pendingAnimationNarrationUrlRef.current = URL.createObjectURL(audioBlob);
+    })();
+    pendingNarrationPreloadPromiseRef.current = task;
+    await task;
   };
 
   const speakAssistantMessage = useCallback(
@@ -236,25 +244,64 @@ export default function WorkspacePage() {
     const video = animationVideoRef.current;
     if (!video) return;
 
-    void video.play().catch(() => {
-      // Ignore autoplay policy failures.
-    });
-
     const narrationText =
       pendingAnimationNarrationTextRef.current?.trim() || "";
-    if (!narrationText) return;
+
+    const playVideoOnly = () => {
+      void video.play().catch(() => {
+        // Ignore autoplay policy failures.
+      });
+    };
+
+    const playNarrationAndVideo = (audioUrl: string) => {
+      stopTtsPlayback();
+      const audio = new Audio(audioUrl);
+      ttsAudioUrlRef.current = audioUrl;
+      ttsAudioRef.current = audio;
+      pendingAnimationNarrationTextRef.current = null;
+      pendingAnimationNarrationUrlRef.current = null;
+      pendingNarrationPreloadPromiseRef.current = null;
+      void Promise.all([
+        video.play().catch(() => {
+          // Ignore autoplay policy failures.
+        }),
+        audio.play().catch(() => {
+          // Ignore autoplay policy failures.
+        }),
+      ]);
+    };
+
+    if (!narrationText) {
+      playVideoOnly();
+      return;
+    }
 
     const pendingUrl = pendingAnimationNarrationUrlRef.current;
     if (pendingUrl) {
-      stopTtsPlayback();
-      const audio = new Audio(pendingUrl);
-      ttsAudioUrlRef.current = pendingUrl;
-      ttsAudioRef.current = audio;
-      void audio.play().catch(() => {
-        // Ignore autoplay policy failures.
-      });
-      pendingAnimationNarrationTextRef.current = null;
-      pendingAnimationNarrationUrlRef.current = null;
+      playNarrationAndVideo(pendingUrl);
+      return;
+    }
+
+    const preloadTask = pendingNarrationPreloadPromiseRef.current;
+    if (preloadTask) {
+      video.pause();
+      void (async () => {
+        await preloadTask.catch(() => {
+          // Fall through to fallback path below.
+        });
+        const readyUrl = pendingAnimationNarrationUrlRef.current;
+        if (readyUrl) {
+          playNarrationAndVideo(readyUrl);
+          return;
+        }
+        // Invalidate any in-flight preload request since we are falling back to
+        // on-demand TTS for this narration.
+        pendingNarrationRequestIdRef.current += 1;
+        clearPendingNarrationAudio();
+        playVideoOnly();
+        void speakAssistantMessage(narrationText);
+        pendingAnimationNarrationTextRef.current = null;
+      })();
       return;
     }
 
@@ -262,6 +309,7 @@ export default function WorkspacePage() {
     // on-demand TTS for this narration.
     pendingNarrationRequestIdRef.current += 1;
     clearPendingNarrationAudio();
+    playVideoOnly();
     void speakAssistantMessage(narrationText);
     pendingAnimationNarrationTextRef.current = null;
   };
@@ -282,175 +330,188 @@ export default function WorkspacePage() {
       pc.addEventListener("icegatheringstatechange", onStateChange);
     });
 
-  const ensureRealtimeConnection = async () => {
+  const ensureRealtimeConnection = async (options?: { silent?: boolean }) => {
     if (dataChannelOpenRef.current && pcRef.current && dataChannelRef.current) {
       return true;
     }
-
-    try {
-      let stream = mediaStreamRef.current;
-      if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        mediaStreamRef.current = stream;
-      }
-
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      for (const track of stream.getAudioTracks()) {
-        track.enabled = true;
-        pc.addTrack(track, stream);
-      }
-
-      const dataChannel = pc.createDataChannel("oai-events");
-      dataChannelRef.current = dataChannel;
-
-      dataChannel.onopen = () => {
-        dataChannelOpenRef.current = true;
-        sendRealtimeEvent({
-          type: "session.update",
-          session: {
-            input_audio_transcription: {
-              model: "gpt-4o-transcribe",
-              language: "en",
-            },
-            turn_detection: null,
-          },
-        });
-      };
-
-      dataChannel.onclose = () => {
-        dataChannelOpenRef.current = false;
-      };
-
-      dataChannel.onmessage = (messageEvent) => {
-        let event: RealtimeEvent;
-        try {
-          event = JSON.parse(messageEvent.data) as RealtimeEvent;
-        } catch {
-          return;
-        }
-
-        if (
-          event.type === "conversation.item.input_audio_transcription.delta"
-        ) {
-          interimTranscriptRef.current += event.delta || "";
-          setVoiceTranscript(interimTranscriptRef.current.trim());
-          return;
-        }
-
-        if (
-          event.type === "conversation.item.input_audio_transcription.completed"
-        ) {
-          const finalText = (
-            event.transcript || interimTranscriptRef.current
-          ).trim();
-          interimTranscriptRef.current = "";
-          setVoiceTranscript("");
-          if (!finalText) return;
-          setAnimationChatHistory((prev) => [
-            ...prev,
-            createChatMessage("user", finalText),
-          ]);
-          void handleSubmit("animation", {
-            providedMessage: finalText,
-            skipUserMessageAppend: true,
-          });
-          return;
-        }
-
-        if (
-          event.type === "conversation.item.input_audio_transcription.failed"
-        ) {
-          setAnimationChatHistory((prev) => [
-            ...prev,
-            createChatMessage(
-              "assistant",
-              "Realtime transcription failed. Please try again.",
-            ),
-          ]);
-          interimTranscriptRef.current = "";
-          setVoiceTranscript("");
-          return;
-        }
-
-        if (event.type === "error") {
-          setAnimationChatHistory((prev) => [
-            ...prev,
-            createChatMessage(
-              "assistant",
-              "Realtime audio connection error occurred.",
-            ),
-          ]);
-        }
-      };
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await waitForIceGatheringComplete(pc);
-
-      const offerSdp = pc.localDescription?.sdp;
-      if (!offerSdp) {
-        throw new Error("Failed to produce SDP offer.");
-      }
-
-      const response = await fetch("/api/realtime/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/sdp" },
-        body: offerSdp,
-      });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const answerSdp = await response.text();
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
-      await new Promise<void>((resolve, reject) => {
-        if (dataChannel.readyState === "open") {
-          resolve();
-          return;
-        }
-        const timeout = setTimeout(() => {
-          reject(new Error("Realtime data channel did not open in time."));
-        }, 8000);
-        dataChannel.addEventListener(
-          "open",
-          () => {
-            clearTimeout(timeout);
-            resolve();
-          },
-          { once: true },
-        );
-      });
-
-      return true;
-    } catch (error) {
-      console.error("Realtime setup failed:", error);
-      setAnimationChatHistory((prev) => [
-        ...prev,
-        createChatMessage(
-          "assistant",
-          "Unable to start realtime audio. Check microphone permissions and API configuration.",
-        ),
-      ]);
-      setIsTalking(false);
-      isTalkingRef.current = false;
-      teardownRealtime();
-      return false;
+    if (ensureRealtimePromiseRef.current) {
+      return ensureRealtimePromiseRef.current;
     }
+
+    const task = (async () => {
+      try {
+        let stream = mediaStreamRef.current;
+        if (!stream) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+          mediaStreamRef.current = stream;
+        }
+
+        const pc = new RTCPeerConnection();
+        pcRef.current = pc;
+
+        for (const track of stream.getAudioTracks()) {
+          track.enabled = true;
+          pc.addTrack(track, stream);
+        }
+
+        const dataChannel = pc.createDataChannel("oai-events");
+        dataChannelRef.current = dataChannel;
+
+        dataChannel.onopen = () => {
+          dataChannelOpenRef.current = true;
+          sendRealtimeEvent({
+            type: "session.update",
+            session: {
+              input_audio_transcription: {
+                model: "gpt-4o-transcribe",
+                language: "en",
+              },
+              turn_detection: null,
+            },
+          });
+        };
+
+        dataChannel.onclose = () => {
+          dataChannelOpenRef.current = false;
+        };
+
+        dataChannel.onmessage = (messageEvent) => {
+          let event: RealtimeEvent;
+          try {
+            event = JSON.parse(messageEvent.data) as RealtimeEvent;
+          } catch {
+            return;
+          }
+
+          if (
+            event.type === "conversation.item.input_audio_transcription.delta"
+          ) {
+            interimTranscriptRef.current += event.delta || "";
+            setVoiceTranscript(interimTranscriptRef.current.trim());
+            return;
+          }
+
+          if (
+            event.type ===
+            "conversation.item.input_audio_transcription.completed"
+          ) {
+            const finalText = (
+              event.transcript || interimTranscriptRef.current
+            ).trim();
+            interimTranscriptRef.current = "";
+            setVoiceTranscript("");
+            if (!finalText) return;
+            setAnimationChatHistory((prev) => [
+              ...prev,
+              createChatMessage("user", finalText),
+            ]);
+            void handleSubmit("animation", {
+              providedMessage: finalText,
+              skipUserMessageAppend: true,
+            });
+            return;
+          }
+
+          if (
+            event.type === "conversation.item.input_audio_transcription.failed"
+          ) {
+            setAnimationChatHistory((prev) => [
+              ...prev,
+              createChatMessage(
+                "assistant",
+                "Realtime transcription failed. Please try again.",
+              ),
+            ]);
+            interimTranscriptRef.current = "";
+            setVoiceTranscript("");
+            return;
+          }
+
+          if (event.type === "error") {
+            setAnimationChatHistory((prev) => [
+              ...prev,
+              createChatMessage(
+                "assistant",
+                "Realtime audio connection error occurred.",
+              ),
+            ]);
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitForIceGatheringComplete(pc);
+
+        const offerSdp = pc.localDescription?.sdp;
+        if (!offerSdp) {
+          throw new Error("Failed to produce SDP offer.");
+        }
+
+        const response = await fetch("/api/realtime/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/sdp" },
+          body: offerSdp,
+        });
+
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+
+        const answerSdp = await response.text();
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+        await new Promise<void>((resolve, reject) => {
+          if (dataChannel.readyState === "open") {
+            resolve();
+            return;
+          }
+          const timeout = setTimeout(() => {
+            reject(new Error("Realtime data channel did not open in time."));
+          }, 8000);
+          dataChannel.addEventListener(
+            "open",
+            () => {
+              clearTimeout(timeout);
+              resolve();
+            },
+            { once: true },
+          );
+        });
+
+        return true;
+      } catch (error) {
+        console.error("Realtime setup failed:", error);
+        if (!options?.silent) {
+          setAnimationChatHistory((prev) => [
+            ...prev,
+            createChatMessage(
+              "assistant",
+              "Unable to start realtime audio. Check microphone permissions and API configuration.",
+            ),
+          ]);
+        }
+        setIsTalking(false);
+        isTalkingRef.current = false;
+        teardownRealtime();
+        return false;
+      } finally {
+        ensureRealtimePromiseRef.current = null;
+      }
+    })();
+
+    ensureRealtimePromiseRef.current = task;
+    return task;
   };
 
   const startVoiceTurn = async () => {
     const connected = await ensureRealtimeConnection();
-    if (!connected) return;
+    if (!connected) return false;
 
     const stream = mediaStreamRef.current;
     if (!stream) {
@@ -458,7 +519,7 @@ export default function WorkspacePage() {
         ...prev,
         createChatMessage("assistant", "Microphone stream is unavailable."),
       ]);
-      return;
+      return false;
     }
 
     recordedChunksRef.current = [];
@@ -482,9 +543,11 @@ export default function WorkspacePage() {
       mediaRecorderRef.current = recorder;
     } catch (error) {
       console.error("Recording setup failed:", error);
+      return false;
     }
 
     sendRealtimeEvent({ type: "input_audio_buffer.clear" });
+    return true;
   };
 
   const stopVoiceTurn = () => {
@@ -495,9 +558,9 @@ export default function WorkspacePage() {
 
   const handleTalkToggle = async () => {
     if (!isTalkingRef.current) {
-      isTalkingRef.current = true;
-      setIsTalking(true);
-      await startVoiceTurn();
+      const started = await startVoiceTurn();
+      isTalkingRef.current = started;
+      setIsTalking(started);
       return;
     }
 
@@ -505,6 +568,13 @@ export default function WorkspacePage() {
     setIsTalking(false);
     stopVoiceTurn();
   };
+
+  prewarmRealtimeRef.current = () => ensureRealtimeConnection({ silent: true });
+
+  useEffect(() => {
+    if (inputMode !== "audio") return;
+    void prewarmRealtimeRef.current();
+  }, [inputMode]);
 
   const getCurrentExpressions = () => {
     const calculator = calculatorRef.current;
