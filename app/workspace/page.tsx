@@ -53,6 +53,15 @@ export default function WorkspacePage() {
   const [graphChatHistory, setGraphChatHistory] = useState<ChatMessage[]>([]);
   const animationChatEndRef = useRef<HTMLDivElement | null>(null);
   const graphChatEndRef = useRef<HTMLDivElement | null>(null);
+  const animationVideoRef = useRef<HTMLVideoElement | null>(null);
+  const lastSpokenAssistantMessageRef = useRef("");
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAudioUrlRef = useRef<string | null>(null);
+  const ttsRequestIdRef = useRef(0);
+  const suppressNextAssistantTtsRef = useRef(false);
+  const pendingAnimationNarrationTextRef = useRef<string | null>(null);
+  const pendingAnimationNarrationUrlRef = useRef<string | null>(null);
+  const pendingNarrationRequestIdRef = useRef(0);
   const whiteboardRef = useRef<WhiteboardHandle | null>(null);
   const [graphWindowOpen, setGraphWindowOpen] = useState(false);
   const [dimension, setDimension] = useState<"2d" | "3d">("2d");
@@ -112,6 +121,94 @@ export default function WorkspacePage() {
       });
       mediaStreamRef.current = null;
     }
+  };
+
+  const stopTtsPlayback = () => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current.src = "";
+      ttsAudioRef.current = null;
+    }
+    if (ttsAudioUrlRef.current) {
+      URL.revokeObjectURL(ttsAudioUrlRef.current);
+      ttsAudioUrlRef.current = null;
+    }
+  };
+
+  const clearPendingNarrationAudio = () => {
+    if (pendingAnimationNarrationUrlRef.current) {
+      URL.revokeObjectURL(pendingAnimationNarrationUrlRef.current);
+      pendingAnimationNarrationUrlRef.current = null;
+    }
+  };
+
+  const preloadNarrationAudio = async (text: string) => {
+    const requestId = ++pendingNarrationRequestIdRef.current;
+    clearPendingNarrationAudio();
+
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok || requestId !== pendingNarrationRequestIdRef.current) {
+      return;
+    }
+
+    const audioBlob = await response.blob();
+    if (requestId !== pendingNarrationRequestIdRef.current) return;
+    pendingAnimationNarrationUrlRef.current = URL.createObjectURL(audioBlob);
+  };
+
+  const speakAssistantMessage = async (text: string) => {
+    const requestId = ++ttsRequestIdRef.current;
+    stopTtsPlayback();
+
+    const response = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok || requestId !== ttsRequestIdRef.current) return;
+
+    const audioBlob = await response.blob();
+    if (requestId !== ttsRequestIdRef.current) return;
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    ttsAudioUrlRef.current = audioUrl;
+    ttsAudioRef.current = audio;
+    await audio.play().catch(() => {
+      // Ignore autoplay policy failures.
+    });
+  };
+
+  const handleAnimationVideoLoaded = () => {
+    const video = animationVideoRef.current;
+    if (!video) return;
+
+    void video.play().catch(() => {
+      // Ignore autoplay policy failures.
+    });
+
+    const narrationText = pendingAnimationNarrationTextRef.current?.trim() || "";
+    if (!narrationText) return;
+
+    const pendingUrl = pendingAnimationNarrationUrlRef.current;
+    if (pendingUrl) {
+      stopTtsPlayback();
+      const audio = new Audio(pendingUrl);
+      ttsAudioRef.current = audio;
+      void audio.play().catch(() => {
+        // Ignore autoplay policy failures.
+      });
+      pendingAnimationNarrationTextRef.current = null;
+      pendingAnimationNarrationUrlRef.current = null;
+      return;
+    }
+
+    void speakAssistantMessage(narrationText);
+    pendingAnimationNarrationTextRef.current = null;
   };
 
   const waitForIceGatheringComplete = (pc: RTCPeerConnection) =>
@@ -399,6 +496,9 @@ export default function WorkspacePage() {
       if (targetMode === "animation") {
         setAnimationVideoUrl(null);
         setAnimationStatus("queued");
+        pendingAnimationNarrationTextRef.current = null;
+        clearPendingNarrationAudio();
+        stopTtsPlayback();
       }
 
       const currentExpressions =
@@ -454,6 +554,9 @@ export default function WorkspacePage() {
         const animation = data.animation as AnimationPayload;
         setActiveAnimationJobId(animation.jobId);
         setAnimationStatus(animation.status);
+        pendingAnimationNarrationTextRef.current = reply;
+        suppressNextAssistantTtsRef.current = true;
+        void preloadNarrationAudio(reply);
         setAnimationChatHistory((prev) => [
           ...prev,
           { role: "assistant", text: reply },
@@ -503,6 +606,23 @@ export default function WorkspacePage() {
   }, [animationChatHistory]);
 
   useEffect(() => {
+    if (animationChatHistory.length === 0) return;
+
+    const latest = animationChatHistory[animationChatHistory.length - 1];
+    if (!latest || latest.role !== "assistant") return;
+    if (suppressNextAssistantTtsRef.current) {
+      suppressNextAssistantTtsRef.current = false;
+      return;
+    }
+
+    const text = latest.text.trim();
+    if (!text || text === lastSpokenAssistantMessageRef.current) return;
+
+    lastSpokenAssistantMessageRef.current = text;
+    void speakAssistantMessage(text);
+  }, [animationChatHistory]);
+
+  useEffect(() => {
     graphChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [graphChatHistory]);
 
@@ -523,6 +643,8 @@ export default function WorkspacePage() {
         });
         mediaStreamRef.current = null;
       }
+      stopTtsPlayback();
+      clearPendingNarrationAudio();
     };
   }, []);
 
@@ -673,8 +795,12 @@ export default function WorkspacePage() {
                 <div className="flex h-full items-center justify-center  bg-black">
                   {animationVideoUrl ? (
                     <video
+                      ref={animationVideoRef}
                       src={animationVideoUrl}
                       controls
+                      autoPlay
+                      playsInline
+                      onLoadedData={handleAnimationVideoLoaded}
                       className="max-h-full max-w-full  bg-black"
                     />
                   ) : (
