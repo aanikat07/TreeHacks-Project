@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateAnimationJob } from "../../../../lib/animation-jobs";
 
 interface CallbackBody {
@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as CallbackBody;
   if (!body.jobId || !body.status) {
-    return NextResponse.json({ error: "Missing jobId or status" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing jobId or status" },
+      { status: 400 },
+    );
   }
 
   let completedVideoUrl = body.videoUrl;

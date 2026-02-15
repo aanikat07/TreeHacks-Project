@@ -1,15 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { Send } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Whiteboard, { type WhiteboardHandle } from "@/components/Whiteboard";
-import { useEffect, useRef, useState } from "react";
 
 type AppMode = "graph" | "animation";
 
 type InputMode = "audio" | "text";
 
 interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   text: string;
   code?: string;
@@ -39,9 +40,54 @@ interface SubmitOptions {
   skipUserMessageAppend?: boolean;
 }
 
+interface DesmosExpression {
+  id: string;
+  latex?: string;
+}
+
+interface DesmosCalculatorLike {
+  getExpressions: () => DesmosExpression[];
+  setExpression: (expression: { id: string; latex: string }) => void;
+  removeExpression: (expression: { id: string }) => void;
+  destroy: () => void;
+}
+
+interface DesmosLibrary {
+  GraphingCalculator: (
+    element: HTMLElement,
+    options: Record<string, boolean>,
+  ) => DesmosCalculatorLike;
+  Calculator3D: (
+    element: HTMLElement,
+    options: Record<string, boolean>,
+  ) => DesmosCalculatorLike;
+}
+
+declare global {
+  interface Window {
+    Desmos?: DesmosLibrary;
+  }
+}
+
+function createChatMessage(
+  role: ChatMessage["role"],
+  text: string,
+  code?: string,
+): ChatMessage {
+  return {
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    role,
+    text,
+    code,
+  };
+}
+
 export default function WorkspacePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const calculatorRef = useRef<any>(null);
+  const calculatorRef = useRef<DesmosCalculatorLike | null>(null);
 
   const [animationQuery, setAnimationQuery] = useState("");
   const [graphQuery, setGraphQuery] = useState("");
@@ -123,7 +169,7 @@ export default function WorkspacePage() {
     }
   };
 
-  const stopTtsPlayback = () => {
+  const stopTtsPlayback = useCallback(() => {
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause();
       ttsAudioRef.current.src = "";
@@ -133,14 +179,14 @@ export default function WorkspacePage() {
       URL.revokeObjectURL(ttsAudioUrlRef.current);
       ttsAudioUrlRef.current = null;
     }
-  };
+  }, []);
 
-  const clearPendingNarrationAudio = () => {
+  const clearPendingNarrationAudio = useCallback(() => {
     if (pendingAnimationNarrationUrlRef.current) {
       URL.revokeObjectURL(pendingAnimationNarrationUrlRef.current);
       pendingAnimationNarrationUrlRef.current = null;
     }
-  };
+  }, []);
 
   const preloadNarrationAudio = async (text: string) => {
     const requestId = ++pendingNarrationRequestIdRef.current;
@@ -160,28 +206,31 @@ export default function WorkspacePage() {
     pendingAnimationNarrationUrlRef.current = URL.createObjectURL(audioBlob);
   };
 
-  const speakAssistantMessage = async (text: string) => {
-    const requestId = ++ttsRequestIdRef.current;
-    stopTtsPlayback();
+  const speakAssistantMessage = useCallback(
+    async (text: string) => {
+      const requestId = ++ttsRequestIdRef.current;
+      stopTtsPlayback();
 
-    const response = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!response.ok || requestId !== ttsRequestIdRef.current) return;
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok || requestId !== ttsRequestIdRef.current) return;
 
-    const audioBlob = await response.blob();
-    if (requestId !== ttsRequestIdRef.current) return;
+      const audioBlob = await response.blob();
+      if (requestId !== ttsRequestIdRef.current) return;
 
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-    ttsAudioUrlRef.current = audioUrl;
-    ttsAudioRef.current = audio;
-    await audio.play().catch(() => {
-      // Ignore autoplay policy failures.
-    });
-  };
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      ttsAudioUrlRef.current = audioUrl;
+      ttsAudioRef.current = audio;
+      await audio.play().catch(() => {
+        // Ignore autoplay policy failures.
+      });
+    },
+    [stopTtsPlayback],
+  );
 
   const handleAnimationVideoLoaded = () => {
     const video = animationVideoRef.current;
@@ -191,13 +240,15 @@ export default function WorkspacePage() {
       // Ignore autoplay policy failures.
     });
 
-    const narrationText = pendingAnimationNarrationTextRef.current?.trim() || "";
+    const narrationText =
+      pendingAnimationNarrationTextRef.current?.trim() || "";
     if (!narrationText) return;
 
     const pendingUrl = pendingAnimationNarrationUrlRef.current;
     if (pendingUrl) {
       stopTtsPlayback();
       const audio = new Audio(pendingUrl);
+      ttsAudioUrlRef.current = pendingUrl;
       ttsAudioRef.current = audio;
       void audio.play().catch(() => {
         // Ignore autoplay policy failures.
@@ -207,6 +258,10 @@ export default function WorkspacePage() {
       return;
     }
 
+    // Invalidate any in-flight preload request since we are falling back to
+    // on-demand TTS for this narration.
+    pendingNarrationRequestIdRef.current += 1;
+    clearPendingNarrationAudio();
     void speakAssistantMessage(narrationText);
     pendingAnimationNarrationTextRef.current = null;
   };
@@ -301,7 +356,7 @@ export default function WorkspacePage() {
           if (!finalText) return;
           setAnimationChatHistory((prev) => [
             ...prev,
-            { role: "user", text: finalText },
+            createChatMessage("user", finalText),
           ]);
           void handleSubmit("animation", {
             providedMessage: finalText,
@@ -315,10 +370,10 @@ export default function WorkspacePage() {
         ) {
           setAnimationChatHistory((prev) => [
             ...prev,
-            {
-              role: "assistant",
-              text: "Realtime transcription failed. Please try again.",
-            },
+            createChatMessage(
+              "assistant",
+              "Realtime transcription failed. Please try again.",
+            ),
           ]);
           interimTranscriptRef.current = "";
           setVoiceTranscript("");
@@ -328,10 +383,10 @@ export default function WorkspacePage() {
         if (event.type === "error") {
           setAnimationChatHistory((prev) => [
             ...prev,
-            {
-              role: "assistant",
-              text: "Realtime audio connection error occurred.",
-            },
+            createChatMessage(
+              "assistant",
+              "Realtime audio connection error occurred.",
+            ),
           ]);
         }
       };
@@ -381,10 +436,10 @@ export default function WorkspacePage() {
       console.error("Realtime setup failed:", error);
       setAnimationChatHistory((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          text: "Unable to start realtime audio. Check microphone permissions and API configuration.",
-        },
+        createChatMessage(
+          "assistant",
+          "Unable to start realtime audio. Check microphone permissions and API configuration.",
+        ),
       ]);
       setIsTalking(false);
       isTalkingRef.current = false;
@@ -401,10 +456,7 @@ export default function WorkspacePage() {
     if (!stream) {
       setAnimationChatHistory((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          text: "Microphone stream is unavailable.",
-        },
+        createChatMessage("assistant", "Microphone stream is unavailable."),
       ]);
       return;
     }
@@ -459,14 +511,13 @@ export default function WorkspacePage() {
     if (!calculator) return [];
     const exprs = calculator.getExpressions();
     return exprs
-      .filter((e: any) => e.latex)
-      .map((e: any) => ({ id: e.id, latex: e.latex }));
+      .filter((expression): expression is Required<DesmosExpression> =>
+        Boolean(expression.latex),
+      )
+      .map((expression) => ({ id: expression.id, latex: expression.latex }));
   };
 
-  const handleSubmit = async (
-    targetMode: AppMode,
-    options?: SubmitOptions,
-  ) => {
+  const handleSubmit = async (targetMode: AppMode, options?: SubmitOptions) => {
     const query = options?.providedMessage
       ? options.providedMessage
       : targetMode === "graph"
@@ -479,14 +530,14 @@ export default function WorkspacePage() {
     if (targetMode === "graph") {
       setGraphChatHistory((prev) => [
         ...prev,
-        { role: "user", text: userMessage },
+        createChatMessage("user", userMessage),
       ]);
       setGraphLoading(true);
     } else {
       if (!options?.skipUserMessageAppend) {
         setAnimationChatHistory((prev) => [
           ...prev,
-          { role: "user", text: userMessage },
+          createChatMessage("user", userMessage),
         ]);
       }
       setAnimationLoading(true);
@@ -497,6 +548,7 @@ export default function WorkspacePage() {
         setAnimationVideoUrl(null);
         setAnimationStatus("queued");
         pendingAnimationNarrationTextRef.current = null;
+        pendingNarrationRequestIdRef.current += 1;
         clearPendingNarrationAudio();
         stopTtsPlayback();
       }
@@ -520,7 +572,22 @@ export default function WorkspacePage() {
           whiteboardImageBase64,
         }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        actions?: Array<{
+          type: "add" | "remove" | "set";
+          id?: string;
+          latex?: string;
+        }>;
+        message?: string;
+        animation?: AnimationPayload;
+      } | null;
+      if (!res.ok) {
+        throw new Error(data?.error || "Request failed.");
+      }
+      if (!data) {
+        throw new Error("Invalid server response.");
+      }
 
       const calculator = calculatorRef.current;
       if (targetMode === "graph" && calculator && Array.isArray(data.actions)) {
@@ -529,6 +596,7 @@ export default function WorkspacePage() {
         for (const action of data.actions) {
           switch (action.type) {
             case "add": {
+              if (!action.latex) break;
               expressionIdRef.current += 1;
               const realId = `expr-${expressionIdRef.current}`;
               calculator.setExpression({ id: realId, latex: action.latex });
@@ -536,11 +604,13 @@ export default function WorkspacePage() {
               break;
             }
             case "remove": {
+              if (!action.id) break;
               const resolvedId = tempIdMap.get(action.id) || action.id;
               calculator.removeExpression({ id: resolvedId });
               break;
             }
             case "set": {
+              if (!action.id || !action.latex) break;
               const resolvedId = tempIdMap.get(action.id) || action.id;
               calculator.setExpression({ id: resolvedId, latex: action.latex });
               break;
@@ -559,7 +629,7 @@ export default function WorkspacePage() {
         void preloadNarrationAudio(reply);
         setAnimationChatHistory((prev) => [
           ...prev,
-          { role: "assistant", text: reply },
+          createChatMessage("assistant", reply),
         ]);
       } else {
         const setTargetChatHistory =
@@ -568,7 +638,7 @@ export default function WorkspacePage() {
             : setAnimationChatHistory;
         setTargetChatHistory((prev) => [
           ...prev,
-          { role: "assistant", text: reply },
+          createChatMessage("assistant", reply),
         ]);
       }
     } catch (err) {
@@ -577,7 +647,7 @@ export default function WorkspacePage() {
         targetMode === "graph" ? setGraphChatHistory : setAnimationChatHistory;
       setTargetChatHistory((prev) => [
         ...prev,
-        { role: "assistant", text: "Something went wrong." },
+        createChatMessage("assistant", "Something went wrong."),
       ]);
       if (targetMode === "animation") {
         setAnimationStatus("failed");
@@ -601,9 +671,11 @@ export default function WorkspacePage() {
     }
   }, []);
 
+  const animationChatCount = animationChatHistory.length;
   useEffect(() => {
+    if (animationChatCount === 0) return;
     animationChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [animationChatHistory]);
+  }, [animationChatCount]);
 
   useEffect(() => {
     if (animationChatHistory.length === 0) return;
@@ -620,15 +692,19 @@ export default function WorkspacePage() {
 
     lastSpokenAssistantMessageRef.current = text;
     void speakAssistantMessage(text);
-  }, [animationChatHistory]);
+  }, [animationChatHistory, speakAssistantMessage]);
 
+  const graphChatCount = graphChatHistory.length;
   useEffect(() => {
+    if (graphChatCount === 0) return;
     graphChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [graphChatHistory]);
+  }, [graphChatCount]);
 
   useEffect(() => {
     return () => {
-      stopRecording();
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      mediaRecorderRef.current = null;
 
       dataChannelRef.current?.close();
       dataChannelRef.current = null;
@@ -643,8 +719,20 @@ export default function WorkspacePage() {
         });
         mediaStreamRef.current = null;
       }
-      stopTtsPlayback();
-      clearPendingNarrationAudio();
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.pause();
+        ttsAudioRef.current.src = "";
+        ttsAudioRef.current = null;
+      }
+      if (ttsAudioUrlRef.current) {
+        URL.revokeObjectURL(ttsAudioUrlRef.current);
+        ttsAudioUrlRef.current = null;
+      }
+      pendingNarrationRequestIdRef.current += 1;
+      if (pendingAnimationNarrationUrlRef.current) {
+        URL.revokeObjectURL(pendingAnimationNarrationUrlRef.current);
+        pendingAnimationNarrationUrlRef.current = null;
+      }
     };
   }, []);
 
@@ -676,10 +764,10 @@ export default function WorkspacePage() {
           setActiveAnimationJobId(null);
           setAnimationChatHistory((prev) => [
             ...prev,
-            {
-              role: "assistant",
-              text: `Animation render failed${job.error ? `: ${job.error}` : "."}`,
-            },
+            createChatMessage(
+              "assistant",
+              `Animation render failed${job.error ? `: ${job.error}` : "."}`,
+            ),
           ]);
         }
       } catch {
@@ -719,7 +807,7 @@ export default function WorkspacePage() {
 
     if (!graphWindowOpen) return;
 
-    const Desmos = (window as any).Desmos;
+    const Desmos = window.Desmos;
     const container = containerRef.current;
     if (!container || !Desmos) return;
 
@@ -745,7 +833,7 @@ export default function WorkspacePage() {
     const check = setInterval(() => {
       if (desmosLoadedRef.current) {
         clearInterval(check);
-        const Desmos = (window as any).Desmos;
+        const Desmos = window.Desmos;
         const container = containerRef.current;
         if (!container || !Desmos || calculatorRef.current) return;
 
@@ -798,7 +886,14 @@ export default function WorkspacePage() {
                       playsInline
                       onLoadedData={handleAnimationVideoLoaded}
                       className="max-h-full max-w-full  bg-black"
-                    />
+                    >
+                      <track
+                        kind="captions"
+                        src="data:text/vtt,WEBVTT"
+                        srcLang="en"
+                        label="English"
+                      />
+                    </video>
                   ) : (
                     <span className="text-sm text-[hsl(var(--muted-foreground))]">
                       {animationLoading ||
@@ -819,8 +914,11 @@ export default function WorkspacePage() {
                 </p>
                 <div className="h-[calc(100%-24px)] overflow-y-auto pr-1">
                   <div className="space-y-1 text-sm leading-6 text-[hsl(var(--foreground))]">
-                    {animationChatHistory.map((msg, i) => (
-                      <p key={i} className="whitespace-pre-wrap break-words">
+                    {animationChatHistory.map((msg) => (
+                      <p
+                        key={msg.id}
+                        className="whitespace-pre-wrap break-words"
+                      >
                         <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
                           {msg.role === "user" ? "You" : "Ada"}
                         </span>
@@ -1008,8 +1106,11 @@ export default function WorkspacePage() {
                 </p>
                 <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
                   <div className="space-y-1 text-sm leading-6 text-[hsl(var(--foreground))]">
-                    {graphChatHistory.map((msg, i) => (
-                      <p key={i} className="whitespace-pre-wrap break-words">
+                    {graphChatHistory.map((msg) => (
+                      <p
+                        key={msg.id}
+                        className="whitespace-pre-wrap break-words"
+                      >
                         <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
                           {msg.role === "user" ? "You" : "Ada"}
                         </span>

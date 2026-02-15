@@ -1,8 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { applyRateLimit } from "../../../../lib/security/rate-limit";
 
 const DEFAULT_REALTIME_MODEL = "gpt-4o-realtime-preview";
+const MAX_SDP_OFFER_LENGTH = 200_000;
 
 export async function POST(request: NextRequest) {
+  const rateLimit = applyRateLimit(request, "api:realtime-session", {
+    windowMs: 60_000,
+    maxRequests: 20,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "Too many realtime session requests. Please try again shortly.",
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const openaiApiKey = process.env.OPENAI_API_KEY;
   if (!openaiApiKey) {
     return NextResponse.json(
@@ -15,6 +33,12 @@ export async function POST(request: NextRequest) {
   const sdpOffer = await request.text();
   if (!sdpOffer.trim()) {
     return NextResponse.json({ error: "Missing SDP offer." }, { status: 400 });
+  }
+  if (sdpOffer.length > MAX_SDP_OFFER_LENGTH) {
+    return NextResponse.json(
+      { error: "SDP offer is too large." },
+      { status: 413 },
+    );
   }
 
   try {

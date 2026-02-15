@@ -34,7 +34,9 @@ export async function saveAnimationJob(job: AnimationJob) {
   });
 }
 
-export async function getAnimationJob(id: string): Promise<AnimationJob | null> {
+export async function getAnimationJob(
+  id: string,
+): Promise<AnimationJob | null> {
   try {
     const metadata = await head(getJobPath(id));
     const response = await fetch(`${metadata.url}?t=${Date.now()}`, {

@@ -6,6 +6,7 @@ import {
   updateAnimationJob,
 } from "../../../lib/animation-jobs";
 import { enqueueRenderJob } from "../../../lib/render-worker";
+import { applyRateLimit } from "../../../lib/security/rate-limit";
 import { generateAnimationPrompt } from "../../../lib/session/animation-prompt";
 import { retrieveRagContext } from "../../../lib/session/retrieve";
 import { canUseSupabaseAdmin } from "../../../lib/supabase/server";
@@ -125,10 +126,7 @@ function sanitizePythonCode(raw: string) {
   cleaned = cleaned.replace(/^python\s*\n/i, "");
 
   // Normalize smart quotes that sometimes appear in LLM output.
-  cleaned = cleaned
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .trim();
+  cleaned = cleaned.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').trim();
 
   return cleaned;
 }
@@ -196,6 +194,8 @@ const tools: Anthropic.Tool[] = [
 ];
 
 const MAX_ITERATIONS = 10;
+const MAX_QUERY_LENGTH = 4000;
+const MAX_WHITEBOARD_DATA_URL_LENGTH = 5_000_000;
 
 async function handleGraphRequest(
   query: string,
@@ -433,6 +433,20 @@ async function handleAnimationRequest(
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimit = applyRateLimit(request, "api:chat", {
+    windowMs: 60_000,
+    maxRequests: 30,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const body = (await request.json()) as ChatRequestBody;
   const {
     query,
@@ -443,6 +457,21 @@ export async function POST(request: NextRequest) {
 
   if (!query || typeof query !== "string") {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
+  }
+  if (query.trim().length > MAX_QUERY_LENGTH) {
+    return NextResponse.json(
+      { error: `Query too long. Maximum is ${MAX_QUERY_LENGTH} characters.` },
+      { status: 400 },
+    );
+  }
+  if (
+    typeof body.whiteboardImageBase64 === "string" &&
+    body.whiteboardImageBase64.length > MAX_WHITEBOARD_DATA_URL_LENGTH
+  ) {
+    return NextResponse.json(
+      { error: "Whiteboard image payload is too large." },
+      { status: 413 },
+    );
   }
 
   if (mode !== "graph" && mode !== "animation") {
