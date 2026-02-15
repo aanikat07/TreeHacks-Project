@@ -40,8 +40,9 @@ Rules:
 - Keep it concise, around 70-120 words.
 - Do not output JSON.
 - Do not include commentary outside the sections.
-- ANIMATION PLAN must contain exactly 3 numbered steps.
+- ANIMATION PLAN must contain numbered steps.
 - Each step should say what to show visually and what to explain.
+- Every visual element should be spaced out (e.g. no overlapping objects)
 - Prefer retrieved lecture grounding over general knowledge.`;
 
   const user = `Student question:
