@@ -651,13 +651,13 @@ export default function WorkspacePage() {
         <div className="flex min-h-0 flex-1 gap-3 p-3">
           <section className="w-1/2 min-h-0">
             <div className="flex h-full flex-col gap-3">
-              <div className="flex-1 min-h-0 overflow-hidden  border border-[hsl(var(--border))] bg-[hsl(220_25%_9%)] p-4">
-                <div className="flex h-full items-center justify-center  bg-[hsl(220_25%_9%)]">
+              <div className="flex-1 min-h-0 overflow-hidden  border border-[hsl(var(--border))] bg-black p-4">
+                <div className="flex h-full items-center justify-center  bg-black">
                   {animationVideoUrl ? (
                     <video
                       src={animationVideoUrl}
                       controls
-                      className="max-h-full max-w-full  bg-[hsl(220_25%_9%)]"
+                      className="max-h-full max-w-full  bg-black"
                     />
                   ) : (
                     <span className="text-sm text-[hsl(var(--muted-foreground))]">
@@ -677,30 +677,20 @@ export default function WorkspacePage() {
                 <p className="mb-2 text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
                   Conversation Transcript
                 </p>
-                <div className="h-[calc(100%-24px)] overflow-y-auto">
-                  {animationChatHistory.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`mb-2 ${msg.role === "user" ? "text-right" : "text-left"}`}
-                    >
-                      <span
-                        className={`inline-block  px-3 py-1.5 text-sm ${
-                          msg.role === "user"
-                            ? "bg-[hsl(var(--primary))] text-white"
-                            : "bg-[hsl(var(--card-strong))] text-[hsl(var(--foreground))]"
-                        }`}
-                      >
+                <div className="h-[calc(100%-24px)] overflow-y-auto pr-1">
+                  <div className="space-y-1 text-sm leading-6 text-[hsl(var(--foreground))]">
+                    {animationChatHistory.map((msg, i) => (
+                      <p key={i} className="whitespace-pre-wrap break-words">
+                        <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                          {msg.role === "user" ? "You" : "Assistant"}
+                        </span>
                         {msg.text}
-                      </span>
-                    </div>
-                  ))}
-                  {animationLoading && (
-                    <div className="mb-2 text-left">
-                      <span className="inline-block  bg-[hsl(var(--card-strong))] px-3 py-1.5 text-sm text-[hsl(var(--muted-foreground))]">
-                        ...
-                      </span>
-                    </div>
-                  )}
+                      </p>
+                    ))}
+                    {animationLoading && (
+                      <p className="text-[hsl(var(--muted-foreground))]">...</p>
+                    )}
+                  </div>
                   <div ref={animationChatEndRef} />
                 </div>
               </div>
@@ -879,30 +869,20 @@ export default function WorkspacePage() {
                 <p className="text-sm font-semibold text-[hsl(var(--foreground))]">
                   Graph Assistant
                 </p>
-                <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
-                  {graphChatHistory.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}
-                    >
-                      <span
-                        className={`inline-block  px-3 py-1.5 text-sm ${
-                          msg.role === "user"
-                            ? "bg-[hsl(var(--primary))] text-white"
-                            : "bg-[hsl(var(--card-strong))] text-[hsl(var(--foreground))]"
-                        }`}
-                      >
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="space-y-1 text-sm leading-6 text-[hsl(var(--foreground))]">
+                    {graphChatHistory.map((msg, i) => (
+                      <p key={i} className="whitespace-pre-wrap break-words">
+                        <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                          {msg.role === "user" ? "You" : "Assistant"}
+                        </span>
                         {msg.text}
-                      </span>
-                    </div>
-                  ))}
-                  {graphLoading && (
-                    <div className="mb-3 text-left">
-                      <span className="inline-block  bg-[hsl(var(--card-strong))] px-3 py-1.5 text-sm text-[hsl(var(--muted-foreground))]">
-                        ...
-                      </span>
-                    </div>
-                  )}
+                      </p>
+                    ))}
+                    {graphLoading && (
+                      <p className="text-[hsl(var(--muted-foreground))]">...</p>
+                    )}
+                  </div>
                   <div ref={graphChatEndRef} />
                 </div>
 
