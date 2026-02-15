@@ -12,6 +12,27 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
+function summarizeWorkerError(status: number, body: string) {
+  const compact = body.replace(/\s+/g, " ").trim();
+  const lower = compact.toLowerCase();
+  const workerUrl = process.env.RENDER_WORKER_URL;
+
+  if (
+    status === 503 &&
+    lower.includes("service suspended") &&
+    lower.includes("suspended by its owner")
+  ) {
+    return `Render worker service is suspended at ${workerUrl}. Unsuspend/redeploy it or update RENDER_WORKER_URL to a running worker.`;
+  }
+
+  if (/<\/?[a-z][\s\S]*>/i.test(compact)) {
+    return `Worker enqueue failed (${status}): Received HTML error page from worker URL ${workerUrl}.`;
+  }
+
+  const truncated = compact.slice(0, 300);
+  return `Worker enqueue failed (${status}): ${truncated || "Unknown error"}`;
+}
+
 export async function enqueueRenderJob({
   jobId,
   pythonCode,
@@ -38,8 +59,6 @@ export async function enqueueRenderJob({
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      `Worker enqueue failed (${response.status}): ${errorText || "Unknown error"}`,
-    );
+    throw new Error(summarizeWorkerError(response.status, errorText));
   }
 }

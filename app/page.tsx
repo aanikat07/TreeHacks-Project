@@ -13,7 +13,6 @@ interface ChatMessage {
 interface AnimationPayload {
   jobId: string;
   status: "queued" | "rendering" | "completed" | "failed";
-  code: string;
 }
 
 interface AnimationJobResponse {
@@ -132,7 +131,7 @@ export default function Home() {
         setAnimationStatus(animation.status);
         setAnimationChatHistory((prev) => [
           ...prev,
-          { role: "assistant", text: reply, code: animation.code },
+          { role: "assistant", text: reply },
         ]);
       } else {
         const setTargetChatHistory =

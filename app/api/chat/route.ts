@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
-import { saveAnimationJob, updateAnimationJob } from "../../../lib/animation-jobs";
+import {
+  saveAnimationJob,
+  updateAnimationJob,
+} from "../../../lib/animation-jobs";
 import { enqueueRenderJob } from "../../../lib/render-worker";
 
 const client = new Anthropic();
@@ -68,6 +71,13 @@ Requirements:
 - Build from https://docs.manim.community/en/stable/`;
 }
 
+function buildAnimationSummaryPrompt() {
+  return `You summarize what a Manim animation will look like.
+
+Return exactly one concise sentence (max 30 words), plain text only.
+Focus on visual outcome, not implementation details.`;
+}
+
 function extractTextFromResponse(response: Anthropic.Message) {
   return response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -102,7 +112,8 @@ const tools: Anthropic.Tool[] = [
       properties: {
         latex: {
           type: "string",
-          description: 'The LaTeX expression to add (e.g. "y = x^2", "y = \\\\sin(x)").',
+          description:
+            'The LaTeX expression to add (e.g. "y = x^2", "y = \\\\sin(x)").',
         },
       },
       required: ["latex"],
@@ -273,6 +284,27 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
     };
   }
 
+  let animationSummary = "Generated animation and queued render job.";
+  try {
+    const summaryResponse = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 128,
+      system: buildAnimationSummaryPrompt(),
+      messages: [
+        {
+          role: "user",
+          content: `User request:\n${query}\n\nGenerated Manim code:\n${pythonCode}`,
+        },
+      ],
+    });
+    const summaryText = extractTextFromResponse(summaryResponse);
+    if (summaryText) {
+      animationSummary = summaryText;
+    }
+  } catch {
+    // Keep default summary when summary generation fails.
+  }
+
   const now = new Date().toISOString();
   const jobId = randomUUID();
 
@@ -292,26 +324,25 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
       callbackUrl: getCallbackUrl(request),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Worker enqueue failed";
+    const message =
+      error instanceof Error ? error.message : "Worker enqueue failed";
     await updateAnimationJob(jobId, { status: "failed", error: message });
     return {
       actions: [],
-      message: "Failed to queue render job.",
+      message: animationSummary,
       animation: {
         jobId,
         status: "failed",
-        code: pythonCode,
       },
     };
   }
 
   return {
     actions: [],
-    message: "Generated Manim code and queued render job.",
+    message: animationSummary,
     animation: {
       jobId,
       status: "queued",
-      code: pythonCode,
     },
   };
 }
