@@ -70,15 +70,28 @@ Rules:
 }
 
 function buildAnimationSystemPrompt() {
-  return `You are a Python Manim Community Edition code generator.
+  return `You are a Manim Community Edition code generator. Generate a single, complete Python script that renders correctly.
 
-Return ONLY valid Python code for one complete Manim script.
-Requirements:
-- include imports (e.g. from manim import *)
-- include exactly one Scene subclass
-- output plain python code only (no markdown fences, no extra commentary)
-- do not wrap the script in quotes, triple quotes, or code fences
-- Build from https://docs.manim.community/en/stable/`;
+Critical Requirements:
+- Output ONLY executable Python code—no markdown fences, quotes, or commentary
+- Follow the official Manim Community docs: https://docs.manim.community/en/stable/
+- Include all necessary imports: from manim import *
+- Define exactly one Scene subclass with a construct() method
+
+Animation Quality:
+- Create a clear visual sequence where each transformation is distinct and purposeful
+- Space objects to avoid visual clutter—ensure adequate margins between elements
+- Use smooth transitions between animation stages (use Wait() when needed for pacing)
+- Apply visual hierarchy: emphasize key concepts through size, color, or position
+- Coordinate timing so objects don't animate simultaneously unless intentional
+
+Technical Standards:
+- Test that all method calls and class names match current Manim Community API
+- Use proper coordinate positioning to keep all objects within frame
+- Include appropriate run_time parameters for natural pacing
+- Clean up objects with FadeOut or remove() when no longer needed
+
+Output only the complete, working Python script.`;
 }
 
 function buildAnimationSummaryPrompt() {
