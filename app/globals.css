@@ -1,6 +1,12 @@
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@400&f[]=trench-slab@500&display=swap");
 @import "tailwindcss";
 
 :root {
+  --font-general-sans:
+    "General Sans", "GeneralSans-Regular", "General Sans Regular", ui-sans-serif,
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-trench-slab:
+    "Trench Slab", "Trench Slab Medium", Georgia, "Times New Roman", serif;
   --background: 30 50% 98.5%;
   --foreground: 0 0% 5%;
   --card: 30 40% 96.5%;
@@ -15,8 +21,9 @@
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  --font-sans: var(--font-space-grotesk);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-sans: var(--font-general-sans);
+  --font-mono: var(--font-general-sans);
+  --font-display: var(--font-trench-slab);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,7 +43,19 @@
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-space-grotesk), sans-serif;
+  font-family: var(--font-general-sans);
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-display {
+  font-family: var(--font-trench-slab);
+  font-weight: 500;
 }
 
 @keyframes float {

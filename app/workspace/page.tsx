@@ -861,7 +861,7 @@ export default function WorkspacePage() {
     <div className="h-screen bg-[hsl(var(--background))]">
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2">
-          <p className="text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+          <p className="font-display text-lg font-medium tracking-tight text-[hsl(var(--primary))]">
             LoveLace
           </p>
           <Link
@@ -909,7 +909,7 @@ export default function WorkspacePage() {
               </div>
 
               <div className="h-[34%] min-h-[240px] overflow-hidden  border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-                <p className="mb-2 text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                <p className="font-display mb-2 text-sm font-medium tracking-tight text-[hsl(var(--muted-foreground))]">
                   Conversation Transcript
                 </p>
                 <div className="h-[calc(100%-24px)] overflow-y-auto pr-1">
@@ -919,7 +919,7 @@ export default function WorkspacePage() {
                         key={msg.id}
                         className="whitespace-pre-wrap break-words"
                       >
-                        <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                        <span className="mr-2 text-[11px] font-medium tracking-tight text-[hsl(var(--muted-foreground))]">
                           {msg.role === "user" ? "You" : "Ada"}
                         </span>
                         {msg.text}
@@ -939,12 +939,12 @@ export default function WorkspacePage() {
             <div className="flex h-full flex-col gap-3">
               <div className="overflow-hidden  border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
                 <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-4 py-2">
-                  <p className="text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                  <p className="font-display text-sm font-medium tracking-tight text-[hsl(var(--muted-foreground))]">
                     User Input
                   </p>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-xs font-mono uppercase tracking-wider ${
+                      className={`text-xs font-medium tracking-tight ${
                         inputMode === "audio"
                           ? "font-semibold text-[hsl(var(--primary))]"
                           : "text-[hsl(var(--muted-foreground))]"
@@ -973,7 +973,7 @@ export default function WorkspacePage() {
                       />
                     </button>
                     <span
-                      className={`text-xs font-mono uppercase tracking-wider ${
+                      className={`text-xs font-medium tracking-tight ${
                         inputMode === "text"
                           ? "font-semibold text-[hsl(var(--primary))]"
                           : "text-[hsl(var(--muted-foreground))]"
@@ -1006,7 +1006,7 @@ export default function WorkspacePage() {
                         onClick={() => handleSubmit("animation")}
                         disabled={animationLoading}
                         aria-label="Send animation prompt"
-                        className=" flex h-[52px] w-[52px] items-center justify-center border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
+                        className="flex min-h-[52px] items-center justify-center self-stretch border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
                       >
                         {animationLoading ? (
                           "..."
@@ -1035,7 +1035,7 @@ export default function WorkspacePage() {
               </div>
 
               <div className="relative min-h-0 flex-1 overflow-hidden  border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3">
-                <p className="mb-2 text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                <p className="font-display mb-2 text-sm font-medium tracking-tight text-[hsl(var(--muted-foreground))]">
                   Whiteboard
                 </p>
                 <div className="relative h-[calc(100%-24px)] overflow-hidden  border border-[hsl(var(--border))]">
@@ -1045,7 +1045,7 @@ export default function WorkspacePage() {
                       type="button"
                       onClick={() => setGraphWindowOpen(true)}
                       aria-label="Open graph workspace"
-                      className="absolute bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center bg-[hsl(var(--primary))] text-lg font-semibold text-white shadow-lg transition hover:bg-[hsl(var(--primary-strong))]"
+                      className="font-display absolute bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center bg-[hsl(var(--primary))] text-lg font-medium text-white shadow-lg transition hover:bg-[hsl(var(--primary-strong))]"
                     >
                       f(x)
                     </button>
@@ -1111,7 +1111,7 @@ export default function WorkspacePage() {
                         key={msg.id}
                         className="whitespace-pre-wrap break-words"
                       >
-                        <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+                        <span className="mr-2 text-[11px] font-medium tracking-tight text-[hsl(var(--muted-foreground))]">
                           {msg.role === "user" ? "You" : "Ada"}
                         </span>
                         {msg.text}

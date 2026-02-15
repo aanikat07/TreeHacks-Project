@@ -53,22 +53,13 @@ export default function Home() {
       </div>
 
       <section className="relative z-10 mx-auto w-full max-w-3xl px-7 py-12 text-center sm:px-12">
-        <span className="inline-flex rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))]/75 px-4 py-1.5 font-mono text-xs uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">
-          Virtual Office Hours
-        </span>
-
-        <h1 className="mt-7 text-6xl font-semibold tracking-tight text-[hsl(var(--foreground))] sm:text-8xl">
+        <h1 className="text-6xl font-semibold tracking-tight text-[hsl(var(--primary))] sm:text-8xl">
           LoveLace
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[hsl(var(--muted-foreground))]">
           Ask questions, reason visually, and generate math animations with
           grounded support from your working context.
-        </p>
-
-        <p className="mx-auto mt-2 max-w-xl text-sm text-[hsl(var(--muted-foreground))]/80">
-          Start in the animation workspace and open the graph assistant whenever
-          you need to explore a function in 2D or 3D.
         </p>
 
         <div className="mt-10 flex items-center justify-center">

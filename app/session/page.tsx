@@ -99,7 +99,7 @@ export default function SessionPage() {
   return (
     <main className="relative flex min-h-screen flex-col bg-[hsl(var(--background))]">
       <header className="flex items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2">
-        <p className="text-xs font-mono uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
+        <p className="font-display text-lg font-medium tracking-tight text-[hsl(var(--primary))]">
           LoveLace
         </p>
         <Link

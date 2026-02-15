@@ -7,8 +7,10 @@ import {
 } from "../../../lib/animation-jobs";
 import { enqueueRenderJob } from "../../../lib/render-worker";
 import { applyRateLimit } from "../../../lib/security/rate-limit";
-import { generateAnimationPrompt } from "../../../lib/session/animation-prompt";
-import { retrieveRagContext } from "../../../lib/session/retrieve";
+import {
+  type RagChunk,
+  retrieveRagContext,
+} from "../../../lib/session/retrieve";
 import { canUseSupabaseAdmin } from "../../../lib/supabase/server";
 import { whiteboardImageToText } from "../../../lib/whiteboard/vision";
 
@@ -310,17 +312,13 @@ async function buildRagAnimationRequest(input: {
   }
 
   const canUseOpenAi = Boolean(process.env.OPENAI_API_KEY);
-  if (!canUseOpenAi) {
-    return studentQuestion;
-  }
-
-  const whiteboardText = await whiteboardImageToText(
-    input.whiteboardImageBase64,
-  );
+  const whiteboardText = canUseOpenAi
+    ? await whiteboardImageToText(input.whiteboardImageBase64)
+    : "";
   const lessonId = input.lessonId?.trim() || "default";
 
   let retrievedChunks: Awaited<ReturnType<typeof retrieveRagContext>> = [];
-  if (canUseSupabaseAdmin()) {
+  if (canUseOpenAi && canUseSupabaseAdmin()) {
     try {
       retrievedChunks = await retrieveRagContext({
         lessonId,
@@ -332,23 +330,47 @@ async function buildRagAnimationRequest(input: {
     }
   }
 
-  try {
-    const prompt = await generateAnimationPrompt({
-      studentQuestion,
-      whiteboardText,
-      retrievedChunks,
+  const compactContext = (chunks: RagChunk[], maxChars = 2200) => {
+    if (chunks.length === 0) return "NONE";
+    const parts = chunks.slice(0, 5).map((chunk, index) => {
+      const source = chunk.source_name ?? "Lecture";
+      const location =
+        chunk.page != null
+          ? `page ${chunk.page}`
+          : chunk.chunk_index != null
+            ? `chunk ${chunk.chunk_index}`
+            : "";
+      return `[${index + 1}] ${source}${location ? ` (${location})` : ""}\n${chunk.content}`;
     });
-    return prompt || studentQuestion;
-  } catch {
-    return studentQuestion;
-  }
+    const joined = parts.join("\n\n");
+    return joined.length > maxChars
+      ? `${joined.slice(0, maxChars)}...`
+      : joined;
+  };
+
+  const claudePrompt = `
+STUDENT QUESTION:
+${studentQuestion}
+
+WHITEBOARD EXTRACT:
+${whiteboardText?.trim() ? whiteboardText.trim() : "NONE"}
+
+RETRIEVED LECTURE CONTEXT:
+${compactContext(retrievedChunks)}
+
+TASK:
+Use the student question as the primary objective and ground explanations in the retrieved lecture context when available.
+Write one complete Manim Community Edition Python script that is accurate, concise, and executable.
+`.trim();
+
+  return { claudePrompt, studentQuestion };
 }
 
 async function handleAnimationRequest(
   body: ChatRequestBody,
   request: NextRequest,
 ) {
-  const ragPrompt = await buildRagAnimationRequest({
+  const { claudePrompt, studentQuestion } = await buildRagAnimationRequest({
     query: body.query,
     lessonId: body.lessonId,
     whiteboardImageBase64: body.whiteboardImageBase64,
@@ -358,7 +380,7 @@ async function handleAnimationRequest(
     model: "claude-sonnet-4-5",
     max_tokens: 4096,
     system: buildAnimationSystemPrompt(),
-    messages: [{ role: "user", content: ragPrompt }],
+    messages: [{ role: "user", content: claudePrompt }],
   });
 
   const pythonCode = sanitizePythonCode(extractTextFromResponse(response));
@@ -378,7 +400,7 @@ async function handleAnimationRequest(
       messages: [
         {
           role: "user",
-          content: `User request:\n${ragPrompt}\n\nGenerated Manim code:\n${pythonCode}`,
+          content: `User request:\n${studentQuestion}\n\nGenerated Manim code:\n${pythonCode}`,
         },
       ],
     });
@@ -395,7 +417,7 @@ async function handleAnimationRequest(
 
   await saveAnimationJob({
     id: jobId,
-    query: ragPrompt,
+    query: studentQuestion,
     pythonCode,
     status: "queued",
     createdAt: now,
