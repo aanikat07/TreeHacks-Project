@@ -36,7 +36,7 @@ export default function Home() {
   const animationChatEndRef = useRef<HTMLDivElement | null>(null);
   const graphChatEndRef = useRef<HTMLDivElement | null>(null);
   const [graphWindowOpen, setGraphWindowOpen] = useState(false);
-  const [dimension, setDimension] = useState<"2d" | "3d">("3d");
+  const [dimension, setDimension] = useState<"2d" | "3d">("2d");
   const expressionIdRef = useRef(0);
   const [activeAnimationJobId, setActiveAnimationJobId] = useState<
     string | null
