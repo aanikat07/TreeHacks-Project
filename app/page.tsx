@@ -26,17 +26,25 @@ interface AnimationJobResponse {
 export default function Home() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const calculatorRef = useRef<any>(null);
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const [mode, setMode] = useState<AppMode>("graph");
+  const [animationQuery, setAnimationQuery] = useState("");
+  const [graphQuery, setGraphQuery] = useState("");
+  const [animationLoading, setAnimationLoading] = useState(false);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [animationChatHistory, setAnimationChatHistory] = useState<
+    ChatMessage[]
+  >([]);
+  const [graphChatHistory, setGraphChatHistory] = useState<ChatMessage[]>([]);
+  const animationChatEndRef = useRef<HTMLDivElement | null>(null);
+  const graphChatEndRef = useRef<HTMLDivElement | null>(null);
+  const [graphWindowOpen, setGraphWindowOpen] = useState(false);
   const [dimension, setDimension] = useState<"2d" | "3d">("3d");
   const expressionIdRef = useRef(0);
-  const [activeAnimationJobId, setActiveAnimationJobId] = useState<string | null>(
+  const [activeAnimationJobId, setActiveAnimationJobId] = useState<
+    string | null
+  >(null);
+  const [animationVideoUrl, setAnimationVideoUrl] = useState<string | null>(
     null,
   );
-  const [animationVideoUrl, setAnimationVideoUrl] = useState<string | null>(null);
   const [animationStatus, setAnimationStatus] = useState<
     "idle" | "queued" | "rendering" | "completed" | "failed"
   >("idle");
@@ -50,38 +58,48 @@ export default function Home() {
       .map((e: any) => ({ id: e.id, latex: e.latex }));
   };
 
-  const handleModeChange = (nextMode: AppMode) => {
-    if (nextMode === mode) return;
-    setMode(nextMode);
-    setChatHistory([]);
-    setQuery("");
-    setActiveAnimationJobId(null);
-    setAnimationVideoUrl(null);
-    setAnimationStatus("idle");
-  };
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (targetMode: AppMode) => {
+    const query = targetMode === "graph" ? graphQuery : animationQuery;
+    const loading = targetMode === "graph" ? graphLoading : animationLoading;
     if (!query.trim() || loading) return;
+
     const userMessage = query.trim();
-    setChatHistory((prev) => [...prev, { role: "user", text: userMessage }]);
-    setLoading(true);
+    if (targetMode === "graph") {
+      setGraphChatHistory((prev) => [
+        ...prev,
+        { role: "user", text: userMessage },
+      ]);
+      setGraphLoading(true);
+    } else {
+      setAnimationChatHistory((prev) => [
+        ...prev,
+        { role: "user", text: userMessage },
+      ]);
+      setAnimationLoading(true);
+    }
 
     try {
-      if (mode === "animation") {
+      if (targetMode === "animation") {
         setAnimationVideoUrl(null);
         setAnimationStatus("queued");
       }
 
-      const currentExpressions = mode === "graph" ? getCurrentExpressions() : [];
+      const currentExpressions =
+        targetMode === "graph" ? getCurrentExpressions() : [];
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, currentExpressions, dimension, mode }),
+        body: JSON.stringify({
+          query: userMessage,
+          currentExpressions,
+          dimension,
+          mode: targetMode,
+        }),
       });
       const data = await res.json();
 
       const calculator = calculatorRef.current;
-      if (mode === "graph" && calculator && Array.isArray(data.actions)) {
+      if (targetMode === "graph" && calculator && Array.isArray(data.actions)) {
         const tempIdMap = new Map<string, string>();
 
         for (const action of data.actions) {
@@ -108,45 +126,66 @@ export default function Home() {
       }
 
       const reply = data.message || "Done.";
-      if (mode === "animation" && data.animation) {
+      if (targetMode === "animation" && data.animation) {
         const animation = data.animation as AnimationPayload;
         setActiveAnimationJobId(animation.jobId);
         setAnimationStatus(animation.status);
-        setChatHistory((prev) => [
+        setAnimationChatHistory((prev) => [
           ...prev,
           { role: "assistant", text: reply, code: animation.code },
         ]);
       } else {
-        setChatHistory((prev) => [...prev, { role: "assistant", text: reply }]);
+        const setTargetChatHistory =
+          targetMode === "graph"
+            ? setGraphChatHistory
+            : setAnimationChatHistory;
+        setTargetChatHistory((prev) => [
+          ...prev,
+          { role: "assistant", text: reply },
+        ]);
       }
     } catch (err) {
       console.error("Failed to process query:", err);
-      setChatHistory((prev) => [
+      const setTargetChatHistory =
+        targetMode === "graph" ? setGraphChatHistory : setAnimationChatHistory;
+      setTargetChatHistory((prev) => [
         ...prev,
         { role: "assistant", text: "Something went wrong." },
       ]);
-      if (mode === "animation") {
+      if (targetMode === "animation") {
         setAnimationStatus("failed");
       }
     } finally {
-      setLoading(false);
-      setQuery("");
+      if (targetMode === "graph") {
+        setGraphLoading(false);
+        setGraphQuery("");
+      } else {
+        setAnimationLoading(false);
+        setAnimationQuery("");
+      }
     }
   };
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory]);
+    animationChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [animationChatHistory]);
 
   useEffect(() => {
-    if (mode !== "animation" || !activeAnimationJobId) return;
+    graphChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [graphChatHistory]);
+
+  useEffect(() => {
+    if (!activeAnimationJobId) return;
 
     let cancelled = false;
     const poll = async () => {
       try {
-        const response = await fetch(`/api/animation/jobs/${activeAnimationJobId}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `/api/animation/jobs/${activeAnimationJobId}`,
+          {
+            cache: "no-store",
+          },
+        );
         if (!response.ok) return;
         const job = (await response.json()) as AnimationJobResponse;
         if (cancelled) return;
@@ -156,7 +195,7 @@ export default function Home() {
         if (job.status === "completed" && job.videoUrl) {
           setAnimationVideoUrl(job.videoUrl);
           setActiveAnimationJobId(null);
-          setChatHistory((prev) => [
+          setAnimationChatHistory((prev) => [
             ...prev,
             { role: "assistant", text: "Animation render complete." },
           ]);
@@ -165,7 +204,7 @@ export default function Home() {
 
         if (job.status === "failed") {
           setActiveAnimationJobId(null);
-          setChatHistory((prev) => [
+          setAnimationChatHistory((prev) => [
             ...prev,
             {
               role: "assistant",
@@ -184,7 +223,7 @@ export default function Home() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [activeAnimationJobId, mode]);
+  }, [activeAnimationJobId]);
 
   const desmosLoadedRef = useRef(false);
 
@@ -208,7 +247,7 @@ export default function Home() {
       calculatorRef.current = null;
     }
 
-    if (mode !== "graph") return;
+    if (!graphWindowOpen) return;
 
     const Desmos = (window as any).Desmos;
     const container = containerRef.current;
@@ -228,9 +267,11 @@ export default function Home() {
       dimension === "3d"
         ? Desmos.Calculator3D(container, options)
         : Desmos.GraphingCalculator(container, options);
-  }, [dimension, mode]);
+  }, [dimension, graphWindowOpen]);
 
   useEffect(() => {
+    if (!graphWindowOpen) return;
+
     const check = setInterval(() => {
       if (desmosLoadedRef.current) {
         clearInterval(check);
@@ -253,82 +294,42 @@ export default function Home() {
       }
     }, 50);
     return () => clearInterval(check);
-  }, [dimension]);
+  }, [dimension, graphWindowOpen]);
 
   const shellAccentClass = "border-orange-500";
   const activeTabClass = "bg-orange-500 text-white border-orange-600";
-  const inactiveTabClass =
-    "bg-orange-300 text-white border-orange-400 hover:bg-orange-400";
 
   return (
     <div className="h-screen bg-orange-50">
       <div className="h-full flex flex-col">
-        <div className="flex items-end">
-          <button
-            onClick={() => handleModeChange("graph")}
-            className={`w-40 border px-5 py-2 text-sm font-semibold text-center transition ${
-              mode === "graph" ? activeTabClass : inactiveTabClass
-            }`}
-          >
-            Graph
-          </button>
-          <button
-            onClick={() => handleModeChange("animation")}
-            className={`w-40 border px-5 py-2 text-sm font-semibold text-center transition ${
-              mode === "animation" ? activeTabClass : inactiveTabClass
-            }`}
-          >
-            Animation
-          </button>
-        </div>
-
         <div className={`flex-1 min-h-0 border-2 bg-white ${shellAccentClass}`}>
           <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200">
             <p className="text-sm font-medium text-gray-700">
-              {mode === "graph" ? "Graph Workspace" : "Animation Workspace"}
+              Animation Workspace
             </p>
-
-            {mode === "graph" && (
-              <div className="flex rounded border border-gray-300 overflow-hidden">
-                <button
-                  onClick={() => setDimension("2d")}
-                  className={`px-3 py-1 text-sm ${dimension === "2d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
-                >
-                  2D
-                </button>
-                <button
-                  onClick={() => setDimension("3d")}
-                  className={`px-3 py-1 text-sm ${dimension === "3d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
-                >
-                  3D
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-1 min-h-0 h-[calc(100%-49px)]">
             <div className="w-1/2 h-full border-r border-gray-200">
-              {mode === "graph" ? (
-                <div id="calculator" ref={containerRef} className="w-full h-full" />
-              ) : (
-                <div className="w-full h-full bg-gray-50 flex items-center justify-center p-4">
-                  {animationVideoUrl ? (
-                    <video
-                      src={animationVideoUrl}
-                      controls
-                      className="max-h-full max-w-full rounded border border-gray-200 bg-black"
-                    />
-                  ) : (
-                    <span className="text-gray-500 text-sm">
-                      {loading || animationStatus === "queued" || animationStatus === "rendering"
-                        ? "Rendering animation..."
-                        : animationStatus === "failed"
-                          ? "Render failed."
-                          : "Animation output will appear here."}
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="w-full h-full bg-gray-50 flex items-center justify-center p-4">
+                {animationVideoUrl ? (
+                  <video
+                    src={animationVideoUrl}
+                    controls
+                    className="max-h-full max-w-full rounded border border-gray-200 bg-black"
+                  />
+                ) : (
+                  <span className="text-gray-500 text-sm">
+                    {animationLoading ||
+                    animationStatus === "queued" ||
+                    animationStatus === "rendering"
+                      ? "Rendering animation..."
+                      : animationStatus === "failed"
+                        ? "Render failed."
+                        : "Animation output will appear here."}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="w-1/2 h-full flex flex-col p-8">
@@ -336,14 +337,16 @@ export default function Home() {
                 Hello, Om
               </h1>
               <div className="flex-1 min-h-0 mt-4 overflow-y-auto">
-                {chatHistory.map((msg, i) => (
+                {animationChatHistory.map((msg, i) => (
                   <div
                     key={i}
                     className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}
                   >
                     <span
                       className={`inline-block px-3 py-1.5 rounded text-sm ${
-                        msg.role === "user" ? "bg-black text-white" : "bg-gray-100 text-black"
+                        msg.role === "user"
+                          ? "bg-black text-white"
+                          : "bg-gray-100 text-black"
                       }`}
                     >
                       {msg.text}
@@ -355,40 +358,155 @@ export default function Home() {
                     )}
                   </div>
                 ))}
-                {loading && (
+                {animationLoading && (
                   <div className="mb-3 text-left">
                     <span className="inline-block px-3 py-1.5 rounded text-sm bg-gray-100 text-gray-400">
                       ...
                     </span>
                   </div>
                 )}
-                <div ref={chatEndRef} />
+                <div ref={animationChatEndRef} />
               </div>
               <div className="flex mt-4">
                 <input
                   type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                  placeholder={
-                    mode === "animation"
-                      ? "Describe the animation you want..."
-                      : "Type something..."
+                  value={animationQuery}
+                  onChange={(e) => setAnimationQuery(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && handleSubmit("animation")
                   }
+                  placeholder="Describe the animation you want..."
                   className="flex-1 border border-gray-300 rounded-l px-3 py-2 text-black text-sm outline-none focus:border-black"
                 />
                 <button
-                  onClick={handleSubmit}
+                  type="button"
+                  onClick={() => handleSubmit("animation")}
                   className="border border-l-0 border-gray-300 rounded-r px-4 py-2 text-black text-sm hover:bg-gray-100"
-                  disabled={loading}
+                  disabled={animationLoading}
                 >
-                  {loading ? "..." : "Submit"}
+                  {animationLoading ? "..." : "Submit"}
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {!graphWindowOpen && (
+        <button
+          type="button"
+          onClick={() => setGraphWindowOpen(true)}
+          aria-label="Open graph workspace"
+          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-orange-500 text-white text-lg font-semibold shadow-lg hover:bg-orange-600 transition"
+        >
+          f(x)
+        </button>
+      )}
+
+      {graphWindowOpen && (
+        <div className="fixed inset-0 z-50 bg-black/20">
+          <div className="absolute left-1/2 top-1/2 h-[86vh] w-[min(96vw,1320px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border-2 border-orange-500 bg-white shadow-2xl">
+            <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200">
+              <p className="text-sm font-medium text-gray-700">
+                Graph Workspace
+              </p>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded border border-gray-300 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setDimension("2d")}
+                    className={`px-3 py-1 text-sm ${dimension === "2d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
+                  >
+                    2D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDimension("3d")}
+                    className={`px-3 py-1 text-sm ${dimension === "3d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
+                  >
+                    3D
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGraphWindowOpen(false)}
+                  aria-label="Close graph workspace"
+                  className="h-8 w-8 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                >
+                  X
+                </button>
+              </div>
+            </div>
+            <div className="h-[calc(100%-48px)] flex min-h-0">
+              <div className="w-[68%] h-full border-r border-gray-200">
+                <div
+                  id="calculator"
+                  ref={containerRef}
+                  className="h-full w-full"
+                />
+              </div>
+
+              <div className="w-[32%] h-full flex flex-col p-4">
+                <p className="text-sm font-semibold text-gray-800">
+                  Graph Assistant
+                </p>
+                <div className="flex-1 min-h-0 mt-3 overflow-y-auto">
+                  {graphChatHistory.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}
+                    >
+                      <span
+                        className={`inline-block px-3 py-1.5 rounded text-sm ${
+                          msg.role === "user"
+                            ? "bg-black text-white"
+                            : "bg-gray-100 text-black"
+                        }`}
+                      >
+                        {msg.text}
+                      </span>
+                      {msg.code && (
+                        <pre className="mt-2 p-3 rounded text-xs bg-gray-900 text-gray-100 overflow-x-auto">
+                          <code>{msg.code}</code>
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                  {graphLoading && (
+                    <div className="mb-3 text-left">
+                      <span className="inline-block px-3 py-1.5 rounded text-sm bg-gray-100 text-gray-400">
+                        ...
+                      </span>
+                    </div>
+                  )}
+                  <div ref={graphChatEndRef} />
+                </div>
+
+                <div className="flex mt-3">
+                  <input
+                    type="text"
+                    value={graphQuery}
+                    onChange={(e) => setGraphQuery(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleSubmit("graph")
+                    }
+                    placeholder="Describe the graph changes you want..."
+                    className="flex-1 border border-gray-300 rounded-l px-3 py-2 text-black text-sm outline-none focus:border-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit("graph")}
+                    className="border border-l-0 border-gray-300 rounded-r px-4 py-2 text-black text-sm hover:bg-gray-100"
+                    disabled={graphLoading}
+                  >
+                    {graphLoading ? "..." : "Submit"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
