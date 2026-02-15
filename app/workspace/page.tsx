@@ -122,7 +122,7 @@ export default function WorkspacePage() {
     "idle" | "queued" | "rendering" | "completed" | "failed"
   >("idle");
 
-  const [inputMode, setInputMode] = useState<InputMode>("text");
+  const [inputMode, setInputMode] = useState<InputMode>("audio");
   const [lessonId, setLessonId] = useState("default");
   const [isTalking, setIsTalking] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
