@@ -1,11 +1,15 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
 import { type NextRequest, NextResponse } from "next/server";
 import {
   saveAnimationJob,
   updateAnimationJob,
 } from "../../../lib/animation-jobs";
 import { enqueueRenderJob } from "../../../lib/render-worker";
+import { generateAnimationPrompt } from "../../../lib/session/animation-prompt";
+import { retrieveRagContext } from "../../../lib/session/retrieve";
+import { canUseSupabaseAdmin } from "../../../lib/supabase/server";
+import { whiteboardImageToText } from "../../../lib/whiteboard/vision";
 
 const client = new Anthropic();
 
@@ -27,6 +31,10 @@ interface ChatRequestBody {
   currentExpressions?: DesmosExpression[];
   dimension?: "2d" | "3d";
   mode?: AppMode;
+  lessonId?: string;
+  voiceTranscript?: string;
+  typedText?: string;
+  whiteboardImageBase64?: string;
 }
 
 function buildGraphSystemPrompt(dimension: "2d" | "3d") {
@@ -270,12 +278,85 @@ function getCallbackUrl(request: NextRequest) {
   return `${url.origin}/api/animation/callback`;
 }
 
-async function handleAnimationRequest(query: string, request: NextRequest) {
+function buildStudentQuestion(input: {
+  query: string;
+  voiceTranscript?: string;
+  typedText?: string;
+}) {
+  const voice = input.voiceTranscript?.trim() || "";
+  const typed = input.typedText?.trim() || "";
+  if (voice && typed) {
+    return `${voice}\n(typed add-on: ${typed})`;
+  }
+  if (voice) return voice;
+  if (typed) return typed;
+  return input.query.trim();
+}
+
+async function buildRagAnimationRequest(input: {
+  query: string;
+  lessonId?: string;
+  voiceTranscript?: string;
+  typedText?: string;
+  whiteboardImageBase64?: string;
+}) {
+  const studentQuestion = buildStudentQuestion(input);
+  if (!studentQuestion) {
+    throw new Error("No question provided.");
+  }
+
+  const canUseOpenAi = Boolean(process.env.OPENAI_API_KEY);
+  if (!canUseOpenAi) {
+    return studentQuestion;
+  }
+
+  const whiteboardText = await whiteboardImageToText(
+    input.whiteboardImageBase64,
+  );
+  const lessonId = input.lessonId?.trim() || "default";
+
+  let retrievedChunks: Awaited<ReturnType<typeof retrieveRagContext>> = [];
+  if (canUseSupabaseAdmin()) {
+    try {
+      retrievedChunks = await retrieveRagContext({
+        lessonId,
+        query: `${studentQuestion}\n\nWhiteboard:\n${whiteboardText || "NONE"}`,
+        topK: 6,
+      });
+    } catch {
+      retrievedChunks = [];
+    }
+  }
+
+  try {
+    const prompt = await generateAnimationPrompt({
+      studentQuestion,
+      whiteboardText,
+      retrievedChunks,
+    });
+    return prompt || studentQuestion;
+  } catch {
+    return studentQuestion;
+  }
+}
+
+async function handleAnimationRequest(
+  body: ChatRequestBody,
+  request: NextRequest,
+) {
+  const ragPrompt = await buildRagAnimationRequest({
+    query: body.query,
+    lessonId: body.lessonId,
+    voiceTranscript: body.voiceTranscript,
+    typedText: body.typedText,
+    whiteboardImageBase64: body.whiteboardImageBase64,
+  });
+
   const response = await client.messages.create({
     model: "claude-sonnet-4-5",
     max_tokens: 4096,
     system: buildAnimationSystemPrompt(),
-    messages: [{ role: "user", content: query }],
+    messages: [{ role: "user", content: ragPrompt }],
   });
 
   const pythonCode = sanitizePythonCode(extractTextFromResponse(response));
@@ -295,7 +376,7 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `User request:\n${query}\n\nGenerated Manim code:\n${pythonCode}`,
+          content: `User request:\n${ragPrompt}\n\nGenerated Manim code:\n${pythonCode}`,
         },
       ],
     });
@@ -312,7 +393,7 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
 
   await saveAnimationJob({
     id: jobId,
-    query,
+    query: ragPrompt,
     pythonCode,
     status: "queued",
     createdAt: now,
@@ -350,12 +431,13 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const body = (await request.json()) as ChatRequestBody;
   const {
     query,
     currentExpressions = [],
     dimension = "3d",
     mode = "graph",
-  }: ChatRequestBody = await request.json();
+  } = body;
 
   if (!query || typeof query !== "string") {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
@@ -366,7 +448,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (mode === "animation") {
-    const result = await handleAnimationRequest(query, request);
+    const result = await handleAnimationRequest(body, request);
     return NextResponse.json(result);
   }
 

@@ -18,6 +18,8 @@ export default function SessionPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -37,8 +39,49 @@ export default function SessionPage() {
     });
   };
 
-  const handleStartSession = () => {
-    if (transitioning) return;
+  const handleStartSession = async () => {
+    if (transitioning || isUploading) return;
+
+    setUploadError(null);
+    const lessonId = `lesson-${Date.now()}`;
+
+    if (files.length > 0) {
+      setIsUploading(true);
+      try {
+        const formData = new FormData();
+        formData.set("lessonId", lessonId);
+        for (const file of files) {
+          formData.append("files", file);
+        }
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(payload?.error || "File ingestion failed.");
+        }
+
+        const payload = (await response.json()) as { lessonId?: string };
+        const resolvedLessonId = payload.lessonId || lessonId;
+        window.localStorage.setItem("lovelace:lessonId", resolvedLessonId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "File upload failed.";
+        setUploadError(message);
+        setIsUploading(false);
+        return;
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      window.localStorage.setItem("lovelace:lessonId", lessonId);
+    }
+
     setTransitioning(true);
     transitionTimerRef.current = setTimeout(() => {
       router.push("/workspace");
@@ -175,16 +218,19 @@ export default function SessionPage() {
           <div className="mt-8 flex flex-col items-center gap-3">
             <button
               type="button"
-              onClick={handleStartSession}
-              disabled={transitioning}
+              onClick={() => void handleStartSession()}
+              disabled={transitioning || isUploading}
               className="w-full rounded-xl bg-[hsl(var(--primary))] px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-[hsl(var(--primary-strong))] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
-              Start Session
+              {isUploading ? "Uploading..." : "Start Session"}
             </button>
             {files.length === 0 && (
               <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 No files yet? You can still continue.
               </p>
+            )}
+            {uploadError && (
+              <p className="text-xs text-red-500">{uploadError}</p>
             )}
           </div>
         </div>

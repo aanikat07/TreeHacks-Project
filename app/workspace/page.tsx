@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Send } from "lucide-react";
-import Whiteboard from "@/components/Whiteboard";
+import Whiteboard, { type WhiteboardHandle } from "@/components/Whiteboard";
 import { useEffect, useRef, useState } from "react";
 
 type AppMode = "graph" | "animation";
@@ -48,6 +48,7 @@ export default function WorkspacePage() {
   const [graphChatHistory, setGraphChatHistory] = useState<ChatMessage[]>([]);
   const animationChatEndRef = useRef<HTMLDivElement | null>(null);
   const graphChatEndRef = useRef<HTMLDivElement | null>(null);
+  const whiteboardRef = useRef<WhiteboardHandle | null>(null);
   const [graphWindowOpen, setGraphWindowOpen] = useState(false);
   const [dimension, setDimension] = useState<"2d" | "3d">("2d");
   const expressionIdRef = useRef(0);
@@ -62,9 +63,11 @@ export default function WorkspacePage() {
   >("idle");
 
   const [inputMode, setInputMode] = useState<InputMode>("text");
+  const [lessonId, setLessonId] = useState("default");
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [lastVoiceTranscript, setLastVoiceTranscript] = useState("");
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -196,6 +199,7 @@ export default function WorkspacePage() {
           interimTranscriptRef.current = "";
           setVoiceTranscript("");
           if (!finalText) return;
+          setLastVoiceTranscript(finalText);
           setAnimationChatHistory((prev) => [
             ...prev,
             { role: "user", text: finalText },
@@ -401,6 +405,19 @@ export default function WorkspacePage() {
 
       const currentExpressions =
         targetMode === "graph" ? getCurrentExpressions() : [];
+      const whiteboardImageBase64 =
+        targetMode === "animation"
+          ? whiteboardRef.current?.getSnapshotDataUrl() || undefined
+          : undefined;
+      const voicePayload =
+        targetMode === "animation" && userMessage === lastVoiceTranscript
+          ? userMessage
+          : "";
+      const typedPayload =
+        targetMode === "animation" && userMessage !== lastVoiceTranscript
+          ? userMessage
+          : "";
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -409,6 +426,10 @@ export default function WorkspacePage() {
           currentExpressions,
           dimension,
           mode: targetMode,
+          lessonId: targetMode === "animation" ? lessonId : undefined,
+          voiceTranscript: voicePayload,
+          typedText: typedPayload,
+          whiteboardImageBase64,
         }),
       });
       const data = await res.json();
@@ -480,6 +501,14 @@ export default function WorkspacePage() {
       }
     }
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedLessonId = window.localStorage.getItem("lovelace:lessonId");
+    if (savedLessonId?.trim()) {
+      setLessonId(savedLessonId);
+    }
+  }, []);
 
   useEffect(() => {
     animationChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -771,7 +800,11 @@ export default function WorkspacePage() {
                         aria-label="Send animation prompt"
                         className=" flex h-[52px] w-[52px] items-center justify-center border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
                       >
-                        {animationLoading ? "..." : <Send className="h-4 w-4" />}
+                        {animationLoading ? (
+                          "..."
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   ) : (
@@ -806,7 +839,7 @@ export default function WorkspacePage() {
                   Whiteboard
                 </p>
                 <div className="relative h-[calc(100%-24px)] overflow-hidden  border border-[hsl(var(--border))]">
-                  <Whiteboard className="h-full" />
+                  <Whiteboard ref={whiteboardRef} className="h-full" />
                   {!graphWindowOpen && (
                     <button
                       type="button"
