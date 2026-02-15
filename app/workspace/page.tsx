@@ -683,7 +683,7 @@ export default function WorkspacePage() {
                     {animationChatHistory.map((msg, i) => (
                       <p key={i} className="whitespace-pre-wrap break-words">
                         <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
-                          {msg.role === "user" ? "You" : "Assistant"}
+                          {msg.role === "user" ? "You" : "Ada"}
                         </span>
                         {msg.text}
                       </p>
@@ -876,7 +876,7 @@ export default function WorkspacePage() {
                     {graphChatHistory.map((msg, i) => (
                       <p key={i} className="whitespace-pre-wrap break-words">
                         <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[hsl(var(--muted-foreground))]">
-                          {msg.role === "user" ? "You" : "Assistant"}
+                          {msg.role === "user" ? "You" : "Ada"}
                         </span>
                         {msg.text}
                       </p>
@@ -902,10 +902,11 @@ export default function WorkspacePage() {
                   <button
                     type="button"
                     onClick={() => handleSubmit("graph")}
-                    className=" border border-l-0 border-[hsl(var(--border))] px-4 py-2 text-sm text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"
+                    aria-label="Send graph prompt"
+                    className="flex h-[42px] w-[42px] items-center justify-center border border-l-0 border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--muted))] disabled:bg-[hsl(var(--muted))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-60"
                     disabled={graphLoading}
                   >
-                    {graphLoading ? "..." : "Send"}
+                    {graphLoading ? "..." : <Send className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
