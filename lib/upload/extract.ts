@@ -8,7 +8,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (name.endsWith(".pdf") || file.type === "application/pdf") {
-    const mod = (await import("pdf-parse")) as unknown as {
+    const mod = (await import("pdf-parse/lib/pdf-parse.js")) as unknown as {
       default?: (input: Buffer) => Promise<{ text?: string }>;
     };
     const pdfParse = mod.default;
