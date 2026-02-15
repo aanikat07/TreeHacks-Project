@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Send } from "lucide-react";
 import Whiteboard from "@/components/Whiteboard";
 import { useEffect, useRef, useState } from "react";
 
@@ -767,9 +768,10 @@ export default function WorkspacePage() {
                         type="button"
                         onClick={() => handleSubmit("animation")}
                         disabled={animationLoading}
-                        className=" border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2 text-sm font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"
+                        aria-label="Send animation prompt"
+                        className=" flex h-[52px] w-[52px] items-center justify-center border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
                       >
-                        {animationLoading ? "..." : "Send"}
+                        {animationLoading ? "..." : <Send className="h-4 w-4" />}
                       </button>
                     </div>
                   ) : (
