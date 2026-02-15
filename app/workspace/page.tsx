@@ -109,6 +109,8 @@ export default function WorkspacePage() {
   const pendingAnimationNarrationUrlRef = useRef<string | null>(null);
   const pendingNarrationPreloadPromiseRef = useRef<Promise<void> | null>(null);
   const pendingNarrationRequestIdRef = useRef(0);
+  const playbackSyncRequestIdRef = useRef(0);
+  const syncedVideoUrlRef = useRef<string | null>(null);
   const whiteboardRef = useRef<WhiteboardHandle | null>(null);
   const [graphWindowOpen, setGraphWindowOpen] = useState(false);
   const [dimension, setDimension] = useState<"2d" | "3d">("2d");
@@ -243,75 +245,71 @@ export default function WorkspacePage() {
   const handleAnimationVideoLoaded = () => {
     const video = animationVideoRef.current;
     if (!video) return;
+    const currentVideoUrl = animationVideoUrl;
+    if (!currentVideoUrl) return;
+    if (syncedVideoUrlRef.current === currentVideoUrl) return;
+    syncedVideoUrlRef.current = currentVideoUrl;
+    const syncRequestId = ++playbackSyncRequestIdRef.current;
 
     const narrationText =
       pendingAnimationNarrationTextRef.current?.trim() || "";
+    video.pause();
+    video.currentTime = 0;
 
-    const playVideoOnly = () => {
-      void video.play().catch(() => {
+    void (async () => {
+      let narrationUrl = pendingAnimationNarrationUrlRef.current;
+
+      if (narrationText && !narrationUrl) {
+        const preloadTask = pendingNarrationPreloadPromiseRef.current;
+        if (preloadTask) {
+          await preloadTask.catch(() => {
+            // Fall through to on-demand TTS synthesis below.
+          });
+          narrationUrl = pendingAnimationNarrationUrlRef.current;
+        }
+      }
+
+      if (narrationText && !narrationUrl) {
+        const requestId = ++pendingNarrationRequestIdRef.current;
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: narrationText }),
+        }).catch(() => null);
+
+        if (
+          response?.ok &&
+          requestId === pendingNarrationRequestIdRef.current &&
+          syncRequestId === playbackSyncRequestIdRef.current
+        ) {
+          const audioBlob = await response.blob();
+          if (
+            requestId === pendingNarrationRequestIdRef.current &&
+            syncRequestId === playbackSyncRequestIdRef.current
+          ) {
+            narrationUrl = URL.createObjectURL(audioBlob);
+          }
+        }
+      }
+
+      if (syncRequestId !== playbackSyncRequestIdRef.current) return;
+
+      if (narrationText && narrationUrl) {
+        stopTtsPlayback();
+        const audio = new Audio(narrationUrl);
+        ttsAudioUrlRef.current = narrationUrl;
+        ttsAudioRef.current = audio;
+        pendingAnimationNarrationTextRef.current = null;
+        pendingAnimationNarrationUrlRef.current = null;
+        pendingNarrationPreloadPromiseRef.current = null;
+        await Promise.allSettled([video.play(), audio.play()]);
+        return;
+      }
+
+      await video.play().catch(() => {
         // Ignore autoplay policy failures.
       });
-    };
-
-    const playNarrationAndVideo = (audioUrl: string) => {
-      stopTtsPlayback();
-      const audio = new Audio(audioUrl);
-      ttsAudioUrlRef.current = audioUrl;
-      ttsAudioRef.current = audio;
-      pendingAnimationNarrationTextRef.current = null;
-      pendingAnimationNarrationUrlRef.current = null;
-      pendingNarrationPreloadPromiseRef.current = null;
-      void Promise.all([
-        video.play().catch(() => {
-          // Ignore autoplay policy failures.
-        }),
-        audio.play().catch(() => {
-          // Ignore autoplay policy failures.
-        }),
-      ]);
-    };
-
-    if (!narrationText) {
-      playVideoOnly();
-      return;
-    }
-
-    const pendingUrl = pendingAnimationNarrationUrlRef.current;
-    if (pendingUrl) {
-      playNarrationAndVideo(pendingUrl);
-      return;
-    }
-
-    const preloadTask = pendingNarrationPreloadPromiseRef.current;
-    if (preloadTask) {
-      video.pause();
-      void (async () => {
-        await preloadTask.catch(() => {
-          // Fall through to fallback path below.
-        });
-        const readyUrl = pendingAnimationNarrationUrlRef.current;
-        if (readyUrl) {
-          playNarrationAndVideo(readyUrl);
-          return;
-        }
-        // Invalidate any in-flight preload request since we are falling back to
-        // on-demand TTS for this narration.
-        pendingNarrationRequestIdRef.current += 1;
-        clearPendingNarrationAudio();
-        playVideoOnly();
-        void speakAssistantMessage(narrationText);
-        pendingAnimationNarrationTextRef.current = null;
-      })();
-      return;
-    }
-
-    // Invalidate any in-flight preload request since we are falling back to
-    // on-demand TTS for this narration.
-    pendingNarrationRequestIdRef.current += 1;
-    clearPendingNarrationAudio();
-    playVideoOnly();
-    void speakAssistantMessage(narrationText);
-    pendingAnimationNarrationTextRef.current = null;
+    })();
   };
 
   const waitForIceGatheringComplete = (pc: RTCPeerConnection) =>
@@ -615,6 +613,8 @@ export default function WorkspacePage() {
 
     try {
       if (targetMode === "animation") {
+        syncedVideoUrlRef.current = null;
+        playbackSyncRequestIdRef.current += 1;
         setAnimationVideoUrl(null);
         setAnimationStatus("queued");
         pendingAnimationNarrationTextRef.current = null;
@@ -956,7 +956,6 @@ export default function WorkspacePage() {
                       ref={animationVideoRef}
                       src={animationVideoUrl}
                       controls
-                      autoPlay
                       playsInline
                       onLoadedData={handleAnimationVideoLoaded}
                       className="max-h-full max-w-full  bg-black"
