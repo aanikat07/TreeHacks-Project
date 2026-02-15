@@ -34,6 +34,11 @@ interface RealtimeEvent {
   error?: unknown;
 }
 
+interface SubmitOptions {
+  providedMessage?: string;
+  skipUserMessageAppend?: boolean;
+}
+
 export default function WorkspacePage() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const calculatorRef = useRef<any>(null);
@@ -64,10 +69,8 @@ export default function WorkspacePage() {
 
   const [inputMode, setInputMode] = useState<InputMode>("text");
   const [lessonId, setLessonId] = useState("default");
-  const [isMicMuted, setIsMicMuted] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
-  const [lastVoiceTranscript, setLastVoiceTranscript] = useState("");
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
@@ -149,7 +152,7 @@ export default function WorkspacePage() {
       pcRef.current = pc;
 
       for (const track of stream.getAudioTracks()) {
-        track.enabled = !isMicMuted;
+        track.enabled = true;
         pc.addTrack(track, stream);
       }
 
@@ -199,12 +202,14 @@ export default function WorkspacePage() {
           interimTranscriptRef.current = "";
           setVoiceTranscript("");
           if (!finalText) return;
-          setLastVoiceTranscript(finalText);
           setAnimationChatHistory((prev) => [
             ...prev,
             { role: "user", text: finalText },
           ]);
-          setAnimationQuery(finalText);
+          void handleSubmit("animation", {
+            providedMessage: finalText,
+            skipUserMessageAppend: true,
+          });
           return;
         }
 
@@ -340,7 +345,6 @@ export default function WorkspacePage() {
   };
 
   const handleTalkToggle = async () => {
-    if (isMicMuted) return;
     if (!isTalkingRef.current) {
       isTalkingRef.current = true;
       setIsTalking(true);
@@ -353,21 +357,6 @@ export default function WorkspacePage() {
     stopVoiceTurn();
   };
 
-  const handleMuteToggle = () => {
-    setIsMicMuted((prev) => {
-      const next = !prev;
-      if (next && isTalkingRef.current) {
-        isTalkingRef.current = false;
-        setIsTalking(false);
-        stopVoiceTurn();
-      }
-      mediaStreamRef.current?.getAudioTracks().forEach((track) => {
-        track.enabled = !next;
-      });
-      return next;
-    });
-  };
-
   const getCurrentExpressions = () => {
     const calculator = calculatorRef.current;
     if (!calculator) return [];
@@ -377,8 +366,15 @@ export default function WorkspacePage() {
       .map((e: any) => ({ id: e.id, latex: e.latex }));
   };
 
-  const handleSubmit = async (targetMode: AppMode) => {
-    const query = targetMode === "graph" ? graphQuery : animationQuery;
+  const handleSubmit = async (
+    targetMode: AppMode,
+    options?: SubmitOptions,
+  ) => {
+    const query = options?.providedMessage
+      ? options.providedMessage
+      : targetMode === "graph"
+        ? graphQuery
+        : animationQuery;
     const loading = targetMode === "graph" ? graphLoading : animationLoading;
     if (!query.trim() || loading) return;
 
@@ -390,10 +386,12 @@ export default function WorkspacePage() {
       ]);
       setGraphLoading(true);
     } else {
-      setAnimationChatHistory((prev) => [
-        ...prev,
-        { role: "user", text: userMessage },
-      ]);
+      if (!options?.skipUserMessageAppend) {
+        setAnimationChatHistory((prev) => [
+          ...prev,
+          { role: "user", text: userMessage },
+        ]);
+      }
       setAnimationLoading(true);
     }
 
@@ -409,14 +407,6 @@ export default function WorkspacePage() {
         targetMode === "animation"
           ? whiteboardRef.current?.getSnapshotDataUrl() || undefined
           : undefined;
-      const voicePayload =
-        targetMode === "animation" && userMessage === lastVoiceTranscript
-          ? userMessage
-          : "";
-      const typedPayload =
-        targetMode === "animation" && userMessage !== lastVoiceTranscript
-          ? userMessage
-          : "";
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -427,8 +417,6 @@ export default function WorkspacePage() {
           dimension,
           mode: targetMode,
           lessonId: targetMode === "animation" ? lessonId : undefined,
-          voiceTranscript: voicePayload,
-          typedText: typedPayload,
           whiteboardImageBase64,
         }),
       });
@@ -818,16 +806,8 @@ export default function WorkspacePage() {
                         type="button"
                         onClick={() => void handleTalkToggle()}
                         className=" border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
-                        disabled={isMicMuted}
                       >
                         {isTalking ? "Stop" : "Talk"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleMuteToggle}
-                        className=" border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
-                      >
-                        {isMicMuted ? "Unmute" : "Mute"}
                       </button>
                     </div>
                   )}

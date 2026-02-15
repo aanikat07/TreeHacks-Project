@@ -32,8 +32,6 @@ interface ChatRequestBody {
   dimension?: "2d" | "3d";
   mode?: AppMode;
   lessonId?: string;
-  voiceTranscript?: string;
-  typedText?: string;
   whiteboardImageBase64?: string;
 }
 
@@ -278,29 +276,12 @@ function getCallbackUrl(request: NextRequest) {
   return `${url.origin}/api/animation/callback`;
 }
 
-function buildStudentQuestion(input: {
-  query: string;
-  voiceTranscript?: string;
-  typedText?: string;
-}) {
-  const voice = input.voiceTranscript?.trim() || "";
-  const typed = input.typedText?.trim() || "";
-  if (voice && typed) {
-    return `${voice}\n(typed add-on: ${typed})`;
-  }
-  if (voice) return voice;
-  if (typed) return typed;
-  return input.query.trim();
-}
-
 async function buildRagAnimationRequest(input: {
   query: string;
   lessonId?: string;
-  voiceTranscript?: string;
-  typedText?: string;
   whiteboardImageBase64?: string;
 }) {
-  const studentQuestion = buildStudentQuestion(input);
+  const studentQuestion = input.query.trim();
   if (!studentQuestion) {
     throw new Error("No question provided.");
   }
@@ -347,8 +328,6 @@ async function handleAnimationRequest(
   const ragPrompt = await buildRagAnimationRequest({
     query: body.query,
     lessonId: body.lessonId,
-    voiceTranscript: body.voiceTranscript,
-    typedText: body.typedText,
     whiteboardImageBase64: body.whiteboardImageBase64,
   });
 
