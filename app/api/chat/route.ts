@@ -64,7 +64,8 @@ Return ONLY valid Python code for one complete Manim script.
 Requirements:
 - include imports (e.g. from manim import *)
 - include exactly one Scene subclass
-- output plain python code only (no markdown fences, no extra commentary)`;
+- output plain python code only (no markdown fences, no extra commentary)
+- Build from https://docs.manim.community/en/stable/`;
 }
 
 function extractTextFromResponse(response: Anthropic.Message) {
