@@ -1,0 +1,7 @@
+echo "
+Gradient in R^3:
+The gradient of f(x,y,z) is the vector of partial derivatives:
+∇f = (∂f/∂x, ∂f/∂y, ∂f/∂z).
+It points in the direction of greatest increase.
+Level surfaces are perpendicular to the gradient vector.
+" > math51_test.txt
