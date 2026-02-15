@@ -108,6 +108,7 @@ Script Requirements:
 - Align each sentence with a distinct visual transformation or element
 - Reference on-screen elements directly: "notice this point...", "as this rotates..."
 - Use short sentences during dynamic visuals, longer ones during static moments
+- Do not include the # (hash) symbol or any code comments
 
 Structure:
 1. Build the concept alongside the animation
