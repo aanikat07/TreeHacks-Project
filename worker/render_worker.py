@@ -19,7 +19,7 @@ def _send_callback(callback_url: str, callback_secret: str, payload: dict):
         f"[callback] sending status={payload.get('status')} jobId={payload.get('jobId')}",
         flush=True,
     )
-    requests.post(
+    response = requests.post(
         callback_url,
         json=payload,
         headers={
@@ -28,6 +28,11 @@ def _send_callback(callback_url: str, callback_secret: str, payload: dict):
         },
         timeout=60,
     )
+    print(
+        f"[callback] response status={response.status_code} body={response.text[:300]}",
+        flush=True,
+    )
+    response.raise_for_status()
     print(
         f"[callback] sent status={payload.get('status')} jobId={payload.get('jobId')}",
         flush=True,

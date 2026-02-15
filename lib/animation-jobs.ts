@@ -30,13 +30,16 @@ export async function saveAnimationJob(job: AnimationJob) {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
+    cacheControlMaxAge: 60,
   });
 }
 
 export async function getAnimationJob(id: string): Promise<AnimationJob | null> {
   try {
     const metadata = await head(getJobPath(id));
-    const response = await fetch(metadata.url, { cache: "no-store" });
+    const response = await fetch(`${metadata.url}?t=${Date.now()}`, {
+      cache: "no-store",
+    });
     if (!response.ok) return null;
     return (await response.json()) as AnimationJob;
   } catch {

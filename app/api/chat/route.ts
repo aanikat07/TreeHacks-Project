@@ -258,7 +258,7 @@ function getCallbackUrl(request: NextRequest) {
 
 async function handleAnimationRequest(query: string, request: NextRequest) {
   const response = await client.messages.create({
-    model: "claude-haiku-4-5",
+    model: "claude-sonnet-4-5",
     max_tokens: 4096,
     system: buildAnimationSystemPrompt(),
     messages: [{ role: "user", content: query }],
