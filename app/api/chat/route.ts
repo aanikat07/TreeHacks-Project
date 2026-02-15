@@ -105,7 +105,7 @@ Core Principles:
 
 Script Requirements:
 - Parse the provided Manim Python code to calculate animation duration
-- Craft narration that fits within the animation length. Do not exceed the duration significantly.
+- Craft narration that fits within the animation length. Do not exceed the duration of the animation significantly.
 - Align each sentence with a distinct visual transformation or element
 - Reference on-screen elements directly: "notice this point...", "as this rotates..."
 - Use short sentences during dynamic visuals, longer ones during static moments
@@ -404,7 +404,7 @@ ${compactContext(retrievedChunks)}
 
 TASK:
 Use the student question as the primary objective and ground explanations in the retrieved lecture context when available.
-Make the scene no longer than 20 seconds.
+Make the scene no longer than 25 seconds.
 Write one complete Manim Community Edition Python script that is accurate, concise, and executable.
 `.trim();
 
@@ -423,7 +423,7 @@ async function handleAnimationRequest(
 
   const generateCode = async (userContent: string) => {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-opus-4-6",
       max_tokens: 4096,
       system: buildAnimationSystemPrompt(),
       messages: [{ role: "user", content: userContent }],
