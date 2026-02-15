@@ -856,6 +856,10 @@ export default function WorkspacePage() {
 
   const activeTabClass =
     "bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary-strong))]";
+  const isAnimationRendering =
+    animationLoading ||
+    animationStatus === "queued" ||
+    animationStatus === "rendering";
 
   return (
     <div className="h-screen bg-[hsl(var(--background))]">
@@ -896,9 +900,7 @@ export default function WorkspacePage() {
                     </video>
                   ) : (
                     <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                      {animationLoading ||
-                      animationStatus === "queued" ||
-                      animationStatus === "rendering"
+                      {isAnimationRendering
                         ? "Rendering animation..."
                         : animationStatus === "failed"
                           ? "Render failed."
@@ -1016,8 +1018,8 @@ export default function WorkspacePage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                    <div className="flex min-h-[52px] items-center justify-center gap-3">
+                      <span className="text-xs text-[hsl(var(--foreground))]/75">
                         {voiceTranscript
                           ? `Listening: ${voiceTranscript}`
                           : "Press Talk to record and transcribe voice."}
@@ -1025,7 +1027,11 @@ export default function WorkspacePage() {
                       <button
                         type="button"
                         onClick={() => void handleTalkToggle()}
-                        className=" border border-[hsl(var(--border))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
+                        className={`px-3 py-1.5 text-xs font-semibold text-white ${
+                          isTalking
+                            ? "border border-red-800/70 bg-red-700 hover:bg-red-800"
+                            : "border border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-strong))]"
+                        }`}
                       >
                         {isTalking ? "Stop" : "Talk"}
                       </button>

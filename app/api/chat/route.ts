@@ -360,6 +360,7 @@ ${compactContext(retrievedChunks)}
 
 TASK:
 Use the student question as the primary objective and ground explanations in the retrieved lecture context when available.
+Make the scene no longer than 20 seconds.
 Write one complete Manim Community Edition Python script that is accurate, concise, and executable.
 `.trim();
 
