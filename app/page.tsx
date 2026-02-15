@@ -255,117 +255,137 @@ export default function Home() {
     return () => clearInterval(check);
   }, [dimension]);
 
+  const shellAccentClass = "border-orange-500";
+  const activeTabClass = "bg-orange-500 text-white border-orange-600";
+  const inactiveTabClass =
+    "bg-orange-300 text-white border-orange-400 hover:bg-orange-400";
+
   return (
-    <div className="h-screen bg-white flex flex-col">
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-gray-200">
-        <div className="flex rounded border border-gray-300 overflow-hidden">
+    <div className="h-screen bg-orange-50">
+      <div className="h-full flex flex-col">
+        <div className="flex items-end">
           <button
             onClick={() => handleModeChange("graph")}
-            className={`px-3 py-1 text-sm ${mode === "graph" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+            className={`w-40 border px-5 py-2 text-sm font-semibold text-center transition ${
+              mode === "graph" ? activeTabClass : inactiveTabClass
+            }`}
           >
             Graph
           </button>
           <button
             onClick={() => handleModeChange("animation")}
-            className={`px-3 py-1 text-sm ${mode === "animation" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+            className={`w-40 border px-5 py-2 text-sm font-semibold text-center transition ${
+              mode === "animation" ? activeTabClass : inactiveTabClass
+            }`}
           >
             Animation
           </button>
         </div>
 
-        {mode === "graph" && (
-          <div className="flex rounded border border-gray-300 overflow-hidden">
-            <button
-              onClick={() => setDimension("2d")}
-              className={`px-3 py-1 text-sm ${dimension === "2d" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
-            >
-              2D
-            </button>
-            <button
-              onClick={() => setDimension("3d")}
-              className={`px-3 py-1 text-sm ${dimension === "3d" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
-            >
-              3D
-            </button>
-          </div>
-        )}
-      </div>
+        <div className={`flex-1 min-h-0 border-2 bg-white ${shellAccentClass}`}>
+          <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200">
+            <p className="text-sm font-medium text-gray-700">
+              {mode === "graph" ? "Graph Workspace" : "Animation Workspace"}
+            </p>
 
-      <div className="flex flex-1 min-h-0">
-        <div className="w-1/2 h-full">
-          {mode === "graph" ? (
-            <div id="calculator" ref={containerRef} className="w-full h-full" />
-          ) : (
-            <div className="w-full h-full bg-gray-50 flex items-center justify-center p-4">
-              {animationVideoUrl ? (
-                <video
-                  src={animationVideoUrl}
-                  controls
-                  className="max-h-full max-w-full rounded border border-gray-200 bg-black"
-                />
-              ) : (
-                <span className="text-gray-500 text-sm">
-                  {loading || animationStatus === "queued" || animationStatus === "rendering"
-                    ? "Rendering animation..."
-                    : animationStatus === "failed"
-                      ? "Render failed."
-                      : "Animation output will appear here."}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="w-1/2 h-full flex flex-col p-8">
-          <h1 className="text-black font-sans text-5xl sm:text-2xl font-semibold">
-            Hello, Om
-          </h1>
-          <div className="flex-1 min-h-0 mt-4 overflow-y-auto">
-            {chatHistory.map((msg, i) => (
-              <div key={i} className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}>
-                <span
-                  className={`inline-block px-3 py-1.5 rounded text-sm ${
-                    msg.role === "user" ? "bg-black text-white" : "bg-gray-100 text-black"
-                  }`}
+            {mode === "graph" && (
+              <div className="flex rounded border border-gray-300 overflow-hidden">
+                <button
+                  onClick={() => setDimension("2d")}
+                  className={`px-3 py-1 text-sm ${dimension === "2d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
                 >
-                  {msg.text}
-                </span>
-                {msg.code && (
-                  <pre className="mt-2 p-3 rounded text-xs bg-gray-900 text-gray-100 overflow-x-auto">
-                    <code>{msg.code}</code>
-                  </pre>
-                )}
-              </div>
-            ))}
-            {loading && (
-              <div className="mb-3 text-left">
-                <span className="inline-block px-3 py-1.5 rounded text-sm bg-gray-100 text-gray-400">
-                  ...
-                </span>
+                  2D
+                </button>
+                <button
+                  onClick={() => setDimension("3d")}
+                  className={`px-3 py-1 text-sm ${dimension === "3d" ? activeTabClass : "text-black hover:bg-gray-100"}`}
+                >
+                  3D
+                </button>
               </div>
             )}
-            <div ref={chatEndRef} />
           </div>
-          <div className="flex mt-4">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              placeholder={
-                mode === "animation"
-                  ? "Describe the animation you want..."
-                  : "Type something..."
-              }
-              className="flex-1 border border-gray-300 rounded-l px-3 py-2 text-black text-sm outline-none focus:border-black"
-            />
-            <button
-              onClick={handleSubmit}
-              className="border border-l-0 border-gray-300 rounded-r px-4 py-2 text-black text-sm hover:bg-gray-100"
-              disabled={loading}
-            >
-              {loading ? "..." : "Submit"}
-            </button>
+
+          <div className="flex flex-1 min-h-0 h-[calc(100%-49px)]">
+            <div className="w-1/2 h-full border-r border-gray-200">
+              {mode === "graph" ? (
+                <div id="calculator" ref={containerRef} className="w-full h-full" />
+              ) : (
+                <div className="w-full h-full bg-gray-50 flex items-center justify-center p-4">
+                  {animationVideoUrl ? (
+                    <video
+                      src={animationVideoUrl}
+                      controls
+                      className="max-h-full max-w-full rounded border border-gray-200 bg-black"
+                    />
+                  ) : (
+                    <span className="text-gray-500 text-sm">
+                      {loading || animationStatus === "queued" || animationStatus === "rendering"
+                        ? "Rendering animation..."
+                        : animationStatus === "failed"
+                          ? "Render failed."
+                          : "Animation output will appear here."}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="w-1/2 h-full flex flex-col p-8">
+              <h1 className="text-black font-sans text-5xl sm:text-2xl font-semibold">
+                Hello, Om
+              </h1>
+              <div className="flex-1 min-h-0 mt-4 overflow-y-auto">
+                {chatHistory.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}
+                  >
+                    <span
+                      className={`inline-block px-3 py-1.5 rounded text-sm ${
+                        msg.role === "user" ? "bg-black text-white" : "bg-gray-100 text-black"
+                      }`}
+                    >
+                      {msg.text}
+                    </span>
+                    {msg.code && (
+                      <pre className="mt-2 p-3 rounded text-xs bg-gray-900 text-gray-100 overflow-x-auto">
+                        <code>{msg.code}</code>
+                      </pre>
+                    )}
+                  </div>
+                ))}
+                {loading && (
+                  <div className="mb-3 text-left">
+                    <span className="inline-block px-3 py-1.5 rounded text-sm bg-gray-100 text-gray-400">
+                      ...
+                    </span>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              <div className="flex mt-4">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                  placeholder={
+                    mode === "animation"
+                      ? "Describe the animation you want..."
+                      : "Type something..."
+                  }
+                  className="flex-1 border border-gray-300 rounded-l px-3 py-2 text-black text-sm outline-none focus:border-black"
+                />
+                <button
+                  onClick={handleSubmit}
+                  className="border border-l-0 border-gray-300 rounded-r px-4 py-2 text-black text-sm hover:bg-gray-100"
+                  disabled={loading}
+                >
+                  {loading ? "..." : "Submit"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
