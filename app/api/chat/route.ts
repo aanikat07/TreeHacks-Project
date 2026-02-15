@@ -75,6 +75,22 @@ function extractTextFromResponse(response: Anthropic.Message) {
     .trim();
 }
 
+function sanitizePythonCode(raw: string) {
+  const trimmed = raw.trim();
+
+  // Handle fenced markdown output: ```python ... ```
+  const fenced = trimmed.match(/^```(?:python)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
+
+  // Fallback: strip fence markers if they appear on separate lines.
+  return trimmed
+    .replace(/^```(?:python)?\s*$/gim, "")
+    .replace(/^```\s*$/gim, "")
+    .trim();
+}
+
 const tools: Anthropic.Tool[] = [
   {
     name: "desmos_add_expression",
@@ -248,7 +264,7 @@ async function handleAnimationRequest(query: string, request: NextRequest) {
     messages: [{ role: "user", content: query }],
   });
 
-  const pythonCode = extractTextFromResponse(response);
+  const pythonCode = sanitizePythonCode(extractTextFromResponse(response));
   if (!pythonCode) {
     return {
       actions: [],
