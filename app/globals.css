@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 30 50% 98.5%;
+  --foreground: 0 0% 5%;
+  --card: 30 40% 96.5%;
+  --card-strong: 30 35% 92%;
+  --muted-foreground: 0 0% 35%;
+  --border: 30 25% 87%;
+  --primary: 280 30% 55%;
+  --primary-strong: 280 30% 48%;
+  --overlay: 0 0% 0%;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 220 25% 6%;
+    --foreground: 220 15% 92%;
+    --card: 220 25% 9%;
+    --card-strong: 220 20% 15%;
+    --muted-foreground: 220 10% 55%;
+    --border: 220 20% 18%;
+    --primary: 220 70% 55%;
+    --primary-strong: 220 70% 50%;
+    --overlay: 0 0% 0%;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(2deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px hsl(280 30% 55% / 0.25);
+  }
+  50% {
+    box-shadow: 0 0 40px hsl(280 30% 48% / 0.45);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes transition-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes spiro-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes spiro-bounce {
+  0% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.12);
+  }
+  35% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  65% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes entering-caption-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transition-overlay {
+  animation: transition-fade-in 0.5s ease forwards;
+}
+
+.spiro-shell {
+  position: relative;
+  filter: drop-shadow(0 0 24px hsla(280, 30%, 55%, 0.35));
+  animation: spiro-enter 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.spiro-bounce {
+  animation: spiro-bounce 1.6s ease-in-out forwards;
+}
+
+.entering-caption {
+  opacity: 0;
+  animation: entering-caption-rise 0.5s ease forwards;
+  animation-delay: 0.8s;
 }
