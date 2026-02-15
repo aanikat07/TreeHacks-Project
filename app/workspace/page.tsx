@@ -248,11 +248,15 @@ export default function WorkspacePage() {
     const currentVideoUrl = animationVideoUrl;
     if (!currentVideoUrl) return;
     if (syncedVideoUrlRef.current === currentVideoUrl) return;
-    syncedVideoUrlRef.current = currentVideoUrl;
     const syncRequestId = ++playbackSyncRequestIdRef.current;
 
+    const latestAssistantMessage = [...animationChatHistory]
+      .reverse()
+      .find((msg) => msg.role === "assistant")?.text;
     const narrationText =
-      pendingAnimationNarrationTextRef.current?.trim() || "";
+      pendingAnimationNarrationTextRef.current?.trim() ||
+      latestAssistantMessage?.trim() ||
+      "";
     video.pause();
     video.currentTime = 0;
 
@@ -295,6 +299,7 @@ export default function WorkspacePage() {
       if (syncRequestId !== playbackSyncRequestIdRef.current) return;
 
       if (narrationText && narrationUrl) {
+        syncedVideoUrlRef.current = currentVideoUrl;
         stopTtsPlayback();
         const audio = new Audio(narrationUrl);
         ttsAudioUrlRef.current = narrationUrl;
@@ -302,10 +307,29 @@ export default function WorkspacePage() {
         pendingAnimationNarrationTextRef.current = null;
         pendingAnimationNarrationUrlRef.current = null;
         pendingNarrationPreloadPromiseRef.current = null;
-        await Promise.allSettled([video.play(), audio.play()]);
+
+        const videoStart = video.play();
+        const firstAudioTry = await audio
+          .play()
+          .then(() => true)
+          .catch(() => false);
+        if (!firstAudioTry) {
+          await new Promise((resolve) => setTimeout(resolve, 220));
+          const secondAudioTry = await audio
+            .play()
+            .then(() => true)
+            .catch(() => false);
+          if (!secondAudioTry) {
+            void speakAssistantMessage(narrationText);
+          }
+        }
+        await videoStart.catch(() => {
+          // Ignore autoplay policy failures.
+        });
         return;
       }
 
+      syncedVideoUrlRef.current = currentVideoUrl;
       await video.play().catch(() => {
         // Ignore autoplay policy failures.
       });
