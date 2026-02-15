@@ -74,6 +74,7 @@ Requirements:
 - include imports (e.g. from manim import *)
 - include exactly one Scene subclass
 - output plain python code only (no markdown fences, no extra commentary)
+- do not wrap the script in quotes, triple quotes, or code fences
 - Build from https://docs.manim.community/en/stable/`;
 }
 
@@ -95,19 +96,40 @@ function extractTextFromResponse(response: Anthropic.Message) {
 }
 
 function sanitizePythonCode(raw: string) {
-  const trimmed = raw.trim();
+  let cleaned = raw.trim();
 
   // Handle fenced markdown output: ```python ... ```
-  const fenced = trimmed.match(/^```(?:python)?\s*([\s\S]*?)\s*```$/i);
+  const fenced = cleaned.match(/^```(?:python)?\s*([\s\S]*?)\s*```$/i);
   if (fenced?.[1]) {
-    return fenced[1].trim();
+    cleaned = fenced[1].trim();
   }
 
   // Fallback: strip fence markers if they appear on separate lines.
-  return trimmed
+  cleaned = cleaned
     .replace(/^```(?:python)?\s*$/gim, "")
     .replace(/^```\s*$/gim, "")
     .trim();
+
+  // If the whole payload is wrapped in triple quotes, unwrap once.
+  const tripleSingleQuoted = cleaned.match(/^'''[\r\n]?([\s\S]*?)[\r\n]?'''$/);
+  if (tripleSingleQuoted?.[1]) {
+    cleaned = tripleSingleQuoted[1].trim();
+  }
+  const tripleDoubleQuoted = cleaned.match(/^"""[\r\n]?([\s\S]*?)[\r\n]?"""$/);
+  if (tripleDoubleQuoted?.[1]) {
+    cleaned = tripleDoubleQuoted[1].trim();
+  }
+
+  // Remove accidental leading "python" label line.
+  cleaned = cleaned.replace(/^python\s*\n/i, "");
+
+  // Normalize smart quotes that sometimes appear in LLM output.
+  cleaned = cleaned
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim();
+
+  return cleaned;
 }
 
 const tools: Anthropic.Tool[] = [
