@@ -310,7 +310,7 @@ export default function Home() {
 
           <div className="flex flex-1 min-h-0 h-[calc(100%-49px)]">
             <div className="w-1/2 h-full border-r border-gray-200">
-              <div className="w-full h-full bg-gray-50 flex items-center justify-center p-4">
+              <div className="w-full h-full bg-black flex items-center justify-center p-4">
                 {animationVideoUrl ? (
                   <video
                     src={animationVideoUrl}
