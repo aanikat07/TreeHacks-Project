@@ -42,7 +42,6 @@ Rules:
 - Do not include commentary outside the sections.
 - ANIMATION PLAN must contain numbered steps.
 - Each step should say what to show visually and what to explain.
-- Every visual element should be spaced correctly (e.g. no overlapping objects)
 - Break down complex concepts into multiple simpler steps if needed.
 - Prefer retrieved lecture grounding over general knowledge.`;
 
