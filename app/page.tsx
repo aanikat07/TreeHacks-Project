@@ -57,7 +57,7 @@ export default function Home() {
           Virtual Office Hours
         </span>
 
-        <h1 className="mt-7 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--primary-strong))] bg-clip-text text-6xl font-semibold tracking-tight text-transparent sm:text-8xl">
+        <h1 className="mt-7 text-6xl font-semibold tracking-tight text-[hsl(var(--foreground))] sm:text-8xl">
           LoveLace
         </h1>
 
@@ -89,9 +89,6 @@ export default function Home() {
             <div className="spiro-bounce">
               <SpirographCanvas animate size={500} />
             </div>
-            <p className="entering-caption mt-5 font-mono text-sm uppercase tracking-[0.18em] text-[hsl(var(--muted-foreground))]">
-              Entering session...
-            </p>
           </div>
         </div>
       )}
