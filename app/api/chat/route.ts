@@ -105,6 +105,7 @@ Core Principles:
 
 Script Requirements:
 - Parse the provided Manim Python code to calculate animation duration
+- Craft narration that fits within the animation length. Do not exceed the duration significantly.
 - Align each sentence with a distinct visual transformation or element
 - Reference on-screen elements directly: "notice this point...", "as this rotates..."
 - Use short sentences during dynamic visuals, longer ones during static moments
@@ -156,7 +157,24 @@ function sanitizePythonCode(raw: string) {
   // Normalize smart quotes that sometimes appear in LLM output.
   cleaned = cleaned.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').trim();
 
+  const manimImportIndex = cleaned.search(
+    /(?:^|\n)(?:from\s+manim\s+import|import\s+manim\b)/i,
+  );
+  if (manimImportIndex >= 0) {
+    cleaned = cleaned.slice(manimImportIndex).trim();
+  }
+
   return cleaned;
+}
+
+function isLikelyValidManimScript(code: string) {
+  const hasImport = /(?:^|\n)(?:from\s+manim\s+import|import\s+manim\b)/i.test(
+    code,
+  );
+  const hasSceneClass =
+    /class\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*Scene[^)]*\)\s*:/.test(code);
+  const hasConstruct = /def\s+construct\s*\(\s*self\s*\)\s*:/.test(code);
+  return hasImport && hasSceneClass && hasConstruct;
 }
 
 const tools: Anthropic.Tool[] = [
@@ -403,18 +421,33 @@ async function handleAnimationRequest(
     whiteboardImageBase64: body.whiteboardImageBase64,
   });
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 4096,
-    system: buildAnimationSystemPrompt(),
-    messages: [{ role: "user", content: claudePrompt }],
-  });
+  const generateCode = async (userContent: string) => {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 4096,
+      system: buildAnimationSystemPrompt(),
+      messages: [{ role: "user", content: userContent }],
+    });
+    return sanitizePythonCode(extractTextFromResponse(response));
+  };
 
-  const pythonCode = sanitizePythonCode(extractTextFromResponse(response));
-  if (!pythonCode) {
+  let pythonCode = await generateCode(claudePrompt);
+  if (!pythonCode || !isLikelyValidManimScript(pythonCode)) {
+    const repairPrompt = `${claudePrompt}
+
+IMPORTANT FIX:
+The previous output was not a valid single-file Manim CE script. Return corrected Python code only.
+- Must include a manim import
+- Must define exactly one class that inherits from a *Scene class (Scene, ThreeDScene, MovingCameraScene, etc.)
+- Must include def construct(self):
+- Must run without markdown fences or commentary`;
+    pythonCode = await generateCode(repairPrompt);
+  }
+
+  if (!pythonCode || !isLikelyValidManimScript(pythonCode)) {
     return {
       actions: [],
-      message: "Could not generate animation code.",
+      message: "Could not generate valid animation code. Please try again.",
     };
   }
 

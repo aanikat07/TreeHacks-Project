@@ -6,6 +6,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
+from typing import Optional
 from urllib.parse import urlencode
 
 import requests
@@ -39,9 +40,22 @@ def _send_callback(callback_url: str, callback_secret: str, payload: dict):
     )
 
 
-def _find_scene_name(code: str) -> str:
-    match = re.search(r"class\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*Scene\s*\)\s*:", code)
-    return match.group(1) if match else "MainScene"
+def _find_scene_name(code: str) -> Optional[str]:
+    class_matches = re.finditer(
+        r"class\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\s*([^)]+)\s*\))?\s*:",
+        code,
+    )
+
+    for match in class_matches:
+        class_name = match.group(1)
+        bases = match.group(2) or ""
+        base_items = [base.strip() for base in bases.split(",") if base.strip()]
+
+        # Match Scene, ThreeDScene, MovingCameraScene, ZoomedScene, etc.
+        if any(re.search(r"(?:^|\.)[A-Za-z_][A-Za-z0-9_]*Scene$", base) for base in base_items):
+            return class_name
+
+    return None
 
 
 def _find_rendered_video(search_root: Path) -> Path:
@@ -121,12 +135,15 @@ def _render_job(
                 "manim",
                 "-ql",
                 str(script_path),
-                scene_name,
+            ]
+            if scene_name:
+                command.append(scene_name)
+            command.extend([
                 "--media_dir",
                 str(media_dir),
                 "--output_file",
                 f"{job_id}.mp4",
-            ]
+            ])
             subprocess.run(
                 command,
                 check=True,
