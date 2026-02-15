@@ -75,7 +75,9 @@ function buildAnimationSummaryPrompt() {
   return `You summarize what a Manim animation will look like.
 
 Return exactly one concise sentence (max 30 words), plain text only.
-Focus on visual outcome, not implementation details.`;
+Focus on mathematical facts only (objects, equations, transformations, quantities).
+Do not include storytelling, hype, filler, or personal tone.
+Do not mention code, rendering, or implementation details.`;
 }
 
 function extractTextFromResponse(response: Anthropic.Message) {
