@@ -855,7 +855,7 @@ export default function WorkspacePage() {
   }, [dimension, graphWindowOpen]);
 
   const activeTabClass =
-    "bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary-strong))]";
+    "border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] text-white";
   const isAnimationRendering =
     animationLoading ||
     animationStatus === "queued" ||
@@ -870,7 +870,7 @@ export default function WorkspacePage() {
           </p>
           <Link
             href="/session"
-            className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"
+            className="rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--card))] px-3 py-1.5 font-display text-xs font-medium tracking-wide text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))]"
           >
             Back
           </Link>
@@ -1008,7 +1008,7 @@ export default function WorkspacePage() {
                         onClick={() => handleSubmit("animation")}
                         disabled={animationLoading}
                         aria-label="Send animation prompt"
-                        className="flex min-h-[52px] items-center justify-center self-stretch border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
+                        className="flex min-h-[52px] items-center justify-center self-stretch rounded-bl-[10px] rounded-br-[5px] rounded-tl-[5px] rounded-tr-[10px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--card))] px-4 text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--border))] disabled:bg-[hsl(var(--card-strong))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-70"
                       >
                         {animationLoading ? (
                           "..."
@@ -1027,10 +1027,10 @@ export default function WorkspacePage() {
                       <button
                         type="button"
                         onClick={() => void handleTalkToggle()}
-                        className={`px-3 py-1.5 text-xs font-semibold text-white ${
+                        className={`rounded-bl-[10px] rounded-br-[5px] rounded-tl-[5px] rounded-tr-[10px] border-2 px-3 py-1.5 font-display text-xs font-medium tracking-wide text-white ${
                           isTalking
-                            ? "border border-red-800/70 bg-red-700 hover:bg-red-800"
-                            : "border border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-strong))]"
+                            ? "border-red-800/70 bg-red-700 hover:bg-red-800"
+                            : "border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-strong))]"
                         }`}
                       >
                         {isTalking ? "Stop" : "Talk"}
@@ -1051,7 +1051,7 @@ export default function WorkspacePage() {
                       type="button"
                       onClick={() => setGraphWindowOpen(true)}
                       aria-label="Open graph workspace"
-                      className="font-display absolute bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center bg-[hsl(var(--primary))] text-lg font-medium text-white shadow-lg transition hover:bg-[hsl(var(--primary-strong))]"
+                      className="font-display absolute bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-bl-[14px] rounded-br-[7px] rounded-tl-[7px] rounded-tr-[14px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] text-lg font-medium text-white shadow-lg transition hover:bg-[hsl(var(--primary-strong))]"
                     >
                       f(x)
                     </button>
@@ -1071,18 +1071,18 @@ export default function WorkspacePage() {
                 Graph Workspace
               </p>
               <div className="flex items-center gap-2">
-                <div className="flex overflow-hidden  border border-[hsl(var(--border))]">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setDimension("2d")}
-                    className={`px-3 py-1 text-sm ${dimension === "2d" ? activeTabClass : "text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"}`}
+                    className={`rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] px-3 py-1 font-display text-sm font-medium tracking-wide ${dimension === "2d" ? activeTabClass : "border-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"}`}
                   >
                     2D
                   </button>
                   <button
                     type="button"
                     onClick={() => setDimension("3d")}
-                    className={`px-3 py-1 text-sm ${dimension === "3d" ? activeTabClass : "text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"}`}
+                    className={`rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] px-3 py-1 font-display text-sm font-medium tracking-wide ${dimension === "3d" ? activeTabClass : "border-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"}`}
                   >
                     3D
                   </button>
@@ -1091,7 +1091,7 @@ export default function WorkspacePage() {
                   type="button"
                   onClick={() => setGraphWindowOpen(false)}
                   aria-label="Close graph workspace"
-                  className="h-8 w-8  border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--card-strong))]"
+                  className="h-8 w-8 rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--primary-strong))] font-display text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))]"
                 >
                   X
                 </button>
@@ -1130,7 +1130,7 @@ export default function WorkspacePage() {
                   <div ref={graphChatEndRef} />
                 </div>
 
-                <div className="mt-3 flex">
+                <div className="mt-3 flex gap-2">
                   <input
                     type="text"
                     value={graphQuery}
@@ -1145,7 +1145,7 @@ export default function WorkspacePage() {
                     type="button"
                     onClick={() => handleSubmit("graph")}
                     aria-label="Send graph prompt"
-                    className="flex h-[42px] w-[42px] items-center justify-center border border-l-0 border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--muted))] disabled:bg-[hsl(var(--muted))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-60"
+                    className="flex h-[42px] w-[42px] items-center justify-center rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--card))] text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))] disabled:cursor-not-allowed disabled:border-[hsl(var(--muted))] disabled:bg-[hsl(var(--muted))] disabled:text-[hsl(var(--muted-foreground))] disabled:opacity-60"
                     disabled={graphLoading}
                   >
                     {graphLoading ? "..." : <Send className="h-4 w-4" />}

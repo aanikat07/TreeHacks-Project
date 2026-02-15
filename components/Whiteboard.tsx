@@ -175,13 +175,13 @@ const Whiteboard = forwardRef<WhiteboardHandle, WhiteboardProps>(
                   setColor(swatch);
                   setTool("brush");
                 }}
-                className="h-5 w-5  border-2"
+                className="h-6 w-6 rounded-bl-[7px] rounded-br-[3px] rounded-tl-[3px] rounded-tr-[7px] border-2"
                 style={{
                   backgroundColor: swatch,
                   borderColor:
                     tool === "brush" && color === swatch
-                      ? "hsl(var(--primary))"
-                      : "transparent",
+                      ? "hsl(var(--foreground))"
+                      : "hsl(var(--border))",
                 }}
               />
             ))}
@@ -193,7 +193,11 @@ const Whiteboard = forwardRef<WhiteboardHandle, WhiteboardProps>(
             type="button"
             onClick={() => setTool("brush")}
             aria-label="Brush tool"
-            className={` px-2 py-1 text-xs ${tool === "brush" ? "bg-[hsl(var(--primary))] text-white" : "text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"}`}
+            className={`rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 px-2 py-1 text-xs ${
+              tool === "brush"
+                ? "border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] text-white"
+                : "border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
+            }`}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -201,7 +205,11 @@ const Whiteboard = forwardRef<WhiteboardHandle, WhiteboardProps>(
             type="button"
             onClick={() => setTool("eraser")}
             aria-label="Eraser tool"
-            className={` px-2 py-1 text-xs ${tool === "eraser" ? "bg-[hsl(var(--primary))] text-white" : "text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"}`}
+            className={`rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 px-2 py-1 text-xs ${
+              tool === "eraser"
+                ? "border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] text-white"
+                : "border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
+            }`}
           >
             <Eraser className="h-4 w-4" />
           </button>
@@ -210,7 +218,7 @@ const Whiteboard = forwardRef<WhiteboardHandle, WhiteboardProps>(
             type="button"
             onClick={undo}
             aria-label="Undo"
-            className="px-2 py-1 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
+            className="rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--border))] px-2 py-1 text-xs text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card))]"
           >
             <Undo2 className="h-4 w-4" />
           </button>
@@ -219,7 +227,7 @@ const Whiteboard = forwardRef<WhiteboardHandle, WhiteboardProps>(
             type="button"
             onClick={clearBoard}
             aria-label="Clear whiteboard"
-            className="ml-auto  px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--card))]"
+            className="ml-auto rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--border))] px-2 py-1 text-xs text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--card))]"
           >
             <Trash2 className="h-4 w-4" />
           </button>

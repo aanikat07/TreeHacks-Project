@@ -408,7 +408,7 @@ async function handleAnimationRequest(
   try {
     const summaryResponse = await client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 128,
+      max_tokens: 220,
       system: buildAnimationSummaryPrompt(),
       messages: [
         {

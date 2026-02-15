@@ -104,7 +104,7 @@ export default function SessionPage() {
         </p>
         <Link
           href="/"
-          className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--foreground))] hover:bg-[hsl(var(--card-strong))]"
+          className="rounded-bl-[8px] rounded-br-[4px] rounded-tl-[4px] rounded-tr-[8px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--card))] px-3 py-1.5 font-display text-xs font-medium tracking-wide text-[hsl(var(--primary))] hover:bg-[hsl(var(--card-strong))]"
         >
           Back
         </Link>
@@ -220,7 +220,7 @@ export default function SessionPage() {
               type="button"
               onClick={() => void handleStartSession()}
               disabled={transitioning || isUploading}
-              className="w-full rounded-xl bg-[hsl(var(--primary))] px-6 py-3 text-center text-sm font-semibold text-white transition hover:bg-[hsl(var(--primary-strong))] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+              className="animate-pulse-glow w-full rounded-bl-[14px] rounded-br-[6px] rounded-tl-[6px] rounded-tr-[14px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] px-6 py-3 text-center font-display text-sm font-medium tracking-wide text-white transition hover:bg-[hsl(var(--primary-strong))] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
             >
               {isUploading ? "Uploading..." : "Start Session"}
             </button>

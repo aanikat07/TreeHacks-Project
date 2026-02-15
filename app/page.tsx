@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import SpirographCanvas from "@/components/SpirographCanvas";
 
 const symbols = ["∫", "∇", "π", "Σ", "∞", "θ", "λ", "Δ", "x²", "eᶦπ"];
+const hearts = ["♥", "♡", "❤", "❥", "❣"];
 
 export default function Home() {
   const router = useRouter();
@@ -50,6 +51,21 @@ export default function Home() {
             {symbol}
           </span>
         ))}
+        {hearts.map((heart, index) => (
+          <span
+            key={heart}
+            className="absolute font-display text-[hsl(var(--primary))]/20"
+            style={{
+              left: `${14 + ((index * 17) % 74)}%`,
+              top: `${8 + ((index * 23) % 78)}%`,
+              fontSize: `${28 + (index % 3) * 10}px`,
+              animation: `float ${6 + (index % 3)}s ease-in-out infinite`,
+              animationDelay: `${index * 0.35 + 0.2}s`,
+            }}
+          >
+            {heart}
+          </span>
+        ))}
       </div>
 
       <section className="relative z-10 mx-auto w-full max-w-3xl px-7 py-12 text-center sm:px-12">
@@ -67,7 +83,7 @@ export default function Home() {
             type="button"
             onClick={handleBegin}
             disabled={transitioning}
-            className="animate-pulse-glow rounded-xl bg-[hsl(var(--primary))] px-8 py-3 text-base font-semibold text-white transition hover:bg-[hsl(var(--primary-strong))]"
+            className="animate-pulse-glow rounded-bl-[14px] rounded-br-[6px] rounded-tl-[6px] rounded-tr-[14px] border-2 border-[hsl(var(--primary-strong))] bg-[hsl(var(--primary))] px-8 py-3 font-display text-base font-medium tracking-wide text-white transition hover:bg-[hsl(var(--primary-strong))]"
           >
             Begin
           </button>
