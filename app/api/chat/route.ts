@@ -81,7 +81,8 @@ Requirements:
 function buildAnimationSummaryPrompt() {
   return `You summarize what a Manim animation will look like.
 
-Return exactly one concise sentence (max 30 words), plain text only.
+Return an engaging but concise description of the animation and focus on what the viewer will see and learn from the animation. 
+Keep it simple and relatively concise.
 Focus on mathematical facts only (objects, equations, transformations, quantities).
 Do not include storytelling, hype, filler, or personal tone.
 Do not mention code, rendering, or implementation details.`;

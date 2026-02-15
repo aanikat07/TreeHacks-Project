@@ -669,10 +669,6 @@ export default function WorkspacePage() {
         if (job.status === "completed" && job.videoUrl) {
           setAnimationVideoUrl(job.videoUrl);
           setActiveAnimationJobId(null);
-          setAnimationChatHistory((prev) => [
-            ...prev,
-            { role: "assistant", text: "Animation render complete." },
-          ]);
           return;
         }
 
